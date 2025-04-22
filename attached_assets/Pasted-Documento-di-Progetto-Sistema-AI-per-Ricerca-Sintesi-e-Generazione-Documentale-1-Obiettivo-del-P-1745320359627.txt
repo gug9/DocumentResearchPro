@@ -1,0 +1,262 @@
+Documento di Progetto: Sistema AI per Ricerca, Sintesi e Generazione Documentale
+
+1. Obiettivo del Progetto
+
+Sviluppare un sistema AI modulare e scalabile che trasforma domande complesse in documenti approfonditi e verificabili. Deve:
+
+Comprendere richieste complesse in linguaggio naturale
+
+Pianificare task atomici e navigazione su fonti affidabili
+
+Lavorare in parallelo su task elastici
+
+Validare e correggere allucinazioni
+
+Assemblare un documento coerente, lungo e strutturato
+
+2. Architettura Generale
+
+Sistema AI Documentale
+├── Frontend: Streamlit
+│   ├── Input (domande multiple, allegati)
+│   ├── Stato task in tempo reale
+│   └── Anteprima documento + download
+│
+├── Orchestrazione: Prefect
+│   ├── Lancio e gestione task paralleli
+│   ├── Task elastici (scaling dinamico)
+│   ├── Retry, logging, feedback loop
+│   └── Tracciamento task multi-hop
+│
+├── Planner: DeepSeek via Ollama (locale)
+│   ├── Parsing semantico input
+│   ├── Generazione task con profondità di ricerca
+│   └── Output JSON strutturato
+│
+├── Executor: Gemini Pro 1.5 Multimodale
+│   ├── Ricerca web, immagini, tabelle
+│   ├── Task con navigazione a profondità N
+│   ├── Output Markdown + metadata + citazioni
+│   └── Capacità multi-hop reasoning
+│
+├── Validatore: DeepSeek Anti-Hallucination
+│   ├── Revisione coerenza e veridicità
+│   ├── Controllo citazioni e coverage
+│   ├── Feedback per retry task
+│   └── Stato di conformità task (pass/fail)
+│
+└── Generatore Finale: DeepSeek (128k)
+    ├── Fonde tutti gli output Markdown
+    ├── Organizza in sezioni logiche (100+ pagine)
+    ├── Stile coerente e accademico
+    └── Output PDF / MD / Word
+
+3. Blocchi Funzionali Estesi
+
+3.1 Frontend: Streamlit
+
+Interfaccia semplificata per input e gestione dei task
+
+Invio richieste all'orchestratore Prefect
+
+Visualizzazione live con polling (WebSocket o polling API)
+
+Supporto a input multipli con salvataggio temporaneo
+
+3.2 Orchestratore: Prefect
+
+Lettura del JSON di task
+
+Avvio parallelo dei task (Elastic Worker Pool)
+
+Implementazione di task asincroni
+
+Supporto a task nidificati (deep multi-hop)
+
+Logging di esiti, durate e fallback
+
+3.3 Pianificatore (DeepSeek)
+
+Interpreta la richiesta in più livelli:
+
+Livello 1: Macro-sezioni (introduzione, stato dell’arte, ecc)
+
+Livello 2: Sotto-task per ciascuna sezione
+
+Livello 3 (opzionale): Approfondimenti iterativi (navigazione profonda)
+
+Assegna priorità e suggerisce prompt per ogni task
+
+3.4 Executor: Gemini Multimodale
+
+Riceve task singoli (JSON) e genera Markdown
+
+Supporta:
+
+Analisi PDF, immagini, grafici
+
+Ricerca live in tempo reale
+
+Output con link citati e riferimenti
+
+Profondità: ogni task può richiedere ulteriori subtask (multi-hop)
+
+3.5 Validatore: Anti-Hallucination Module
+
+Analizza ogni task Markdown
+
+Verifica che:
+
+Le fonti siano verificate e coerenti
+
+I dati non siano allucinati
+
+La copertura sia sufficiente
+
+In caso di fallimento:
+
+Rigenera un prompt correttivo
+
+Rilancia il task con Prefect
+
+3.6 Generatore Finale: DeepSeek 128k
+
+Unifica i file Markdown dei task in un solo corpus
+
+Usa struttura gerarchica pianificata
+
+Applica stile, coerenza lessicale e narrativa
+
+Produce:
+
+Indice
+
+Abstract
+
+Citazioni bibliografiche
+
+Output PDF, Word e MD
+
+4. Funzioni Dettagliate
+
+Funzione
+
+Scopo
+
+parse_input()
+
+Analizza e valida l'input iniziale (domande + file)
+
+generate_plan()
+
+Crea task multi-livello da domanda complessa
+
+submit_task(task)
+
+Invia un task a Gemini e ottiene risposta
+
+handle_deep_tasks()
+
+Se un task richiede sottotask, li pianifica e lancia in cascata
+
+validate_task_output()
+
+Verifica coerenza, copertura e fonti
+
+retry_task_with_feedback()
+
+Genera nuovo prompt per task non validi
+
+merge_results()
+
+Unisce Markdown validati in corpus coerente
+
+format_document()
+
+Applica stili e impaginazione
+
+track_status()
+
+Aggiorna frontend su stato task in tempo reale
+
+5. Modello JSON di Task
+
+{
+  "task_id": "T001",
+  "titolo": "Panoramica delle abitudini alimentari dei gatti",
+  "prompt": "Raccogli e sintetizza dati da fonti attendibili su cosa mangiano i gatti in ambienti domestici e selvatici.",
+  "categoria": "comportamento",
+  "profondità_navigazione": 2,
+  "url_raccolti": [],
+  "output_path": "temp/task_T001.md"
+}
+
+6. Componenti Architetturali
+
+Componente
+
+Tecnologia / Servizio
+
+Funzione
+
+UI / Frontend
+
+Streamlit
+
+Interazione utente + stato task
+
+Orchestratore
+
+Prefect
+
+Parallelismo + feedback loop
+
+Pianificatore
+
+DeepSeek (via Ollama)
+
+Task planning + generazione finale
+
+Executor
+
+Gemini Pro 1.5 (API)
+
+Ricerca e scrittura contenuti
+
+Validatore
+
+DeepSeek / Custom LLM
+
+Controllo e riduzione allucinazioni
+
+Storage
+
+FileSystem + SQLite
+
+Salvataggio temporaneo e checkpoint
+
+Output Renderer
+
+Pandoc + Python Scripts
+
+PDF / Word / Markdown
+
+7. Estensioni Avanzate
+
+Supporto a generazione multi-documento
+
+Autotuning dinamico dei task planner
+
+Logging firmato e tracciabilità completa
+
+Supporto a orchestratori distribuiti (Ray, Dask)
+
+Integrazione OCR + GPT-4-Vision per media complessi
+
+Reattività interfaccia (es. WebSocket live)
+
+8. Conclusione
+
+Il sistema proposto è pensato per scalare su richieste complesse, garantendo qualità, controllo e flessibilità. L’integrazione tra orchestrazione, validazione, esecuzione multimodale e generazione finale rende il processo affidabile anche su documenti di centinaia di pagine, con gestione avanzata del contesto e controllo di qualità.
+
+Il frontend mantiene il controllo dell’interazione, mentre il backend lavora in modo asicrono e robusto, garantendo alta osservabilità e resilienza nella pipelin
