@@ -15,6 +15,14 @@ if "research_system" not in st.session_state:
     st.session_state.research_system = None
 if "research_results" not in st.session_state:
     st.session_state.research_results = None
+if "api_keys" not in st.session_state:
+    st.session_state.api_keys = {}
+
+# API Keys Management
+with st.sidebar.expander("🔑 Gestione API Keys"):
+    gemini_key = st.text_input("Gemini API Key", type="password", key="gemini_key")
+    if gemini_key:
+        st.session_state.api_keys["gemini"] = gemini_key
 
 # Sidebar configuration
 st.sidebar.title("Configurazione")

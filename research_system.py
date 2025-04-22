@@ -149,10 +149,9 @@ class ResearchSystem:
         
     async def close_browser(self):
         """Close the browser controller."""
-        if self.context:
-            await self.context.close()
-        if self.browser:
+        if hasattr(self, 'browser') and self.browser:
             await self.browser.close()
+        logger.info("Browser closed")
         logger.info("Browser closed")
 
     async def close(self):
