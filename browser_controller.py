@@ -7,82 +7,205 @@ from urllib.parse import urlparse
 
 from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 import trafilatura
-
-from models import ResearchTask, ContentMetadata
+from gemini_integration import GeminiIntegration #Added import
+from content_analyzer import ContentAnalyzer #Added import
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-
 class BrowserController:
-    """
-    Controller class for headless web browsing using Playwright.
-    
-    This module is responsible for:
-    1. Opening web pages
-    2. Searching text within pages
-    3. Extracting content from web pages
-    4. Downloading documents
-    5. Extracting data tables
-    """
-    
+    """Controller for semantic web browsing using Playwright and Gemini."""
+
     def __init__(self):
-        """Initialize the BrowserController."""
-        logger.debug("Initializing BrowserController")
         self.browser = None
         self.context = None
-    
+        self.gemini = GeminiIntegration()
+        self.analyzer = ContentAnalyzer()
+
     USER_AGENTS = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15',
         'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
     ]
-    
+
     async def initialize(self) -> None:
-        """
-        Initialize the browser and context for headless browsing with anti-detection measures.
-        """
+        """Initialize browser with anti-detection."""
         import random
-        
         playwright = await async_playwright().start()
-        self.browser = await playwright.chromium.launch(
-            headless=True,
-            args=['--disable-blink-features=AutomationControlled']
-        )
-        
-        # Rotate user agent
-        user_agent = random.choice(self.USER_AGENTS)
-        
-        # More realistic browser context
+        self.browser = await playwright.chromium.launch(headless=True)
         self.context = await self.browser.new_context(
             viewport={'width': random.randint(1024, 1920), 'height': random.randint(768, 1080)},
-            user_agent=user_agent,
-            locale='it-IT',
-            timezone_id='Europe/Rome',
-            geolocation={'latitude': 41.9028, 'longitude': 12.4964},
-            has_touch=True,
-            is_mobile=False,
-            device_scale_factor=random.choice([1, 2])
+            user_agent=random.choice(self.USER_AGENTS),
+            locale='it-IT'
         )
-        
-        # Modify navigator properties
-        await self.context.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-            Object.defineProperty(navigator, 'automation', { get: () => undefined });
-        """)
-        
-        logger.debug(f"Browser initialized with UA: {user_agent}")
-    
+        logger.debug("Browser initialized")
+
+    async def analyze_visual_content(self, page: Page) -> Dict[str, Any]:
+        """Analyze visual content using Gemini Vision."""
+        try:
+            # Capture screenshot
+            screenshot = await page.screenshot(type='jpeg', quality=80)
+
+            # Analyze with Gemini
+            prompt = "Analizza questa pagina web e descrivi gli elementi visivi principali, il layout e qualsiasi informazione rilevante."
+            visual_analysis = await self.gemini.analyze_image(screenshot, prompt)
+
+            return {
+                "visual_analysis": visual_analysis,
+                "has_images": len(await page.query_selector_all('img')) > 0,
+                "layout_structure": await self._analyze_layout(page)
+            }
+        except Exception as e:
+            logger.error(f"Error analyzing visual content: {str(e)}")
+            return {"error": str(e)}
+
+    async def _analyze_layout(self, page: Page) -> Dict[str, Any]:
+        """Analyze page layout structure."""
+        return await page.evaluate('''() => {
+            const layout = {
+                header: !!document.querySelector('header'),
+                navigation: !!document.querySelector('nav'),
+                main_content: !!document.querySelector('main'),
+                sidebar: !!document.querySelector('aside'),
+                footer: !!document.querySelector('footer')
+            };
+            return layout;
+        }''')
+
+    async def semantic_browse(self, url: str, context: str = "") -> Dict[str, Any]:
+        """Navigate and analyze page semantically."""
+        if not self.context:
+            await self.initialize()
+
+        try:
+            page = await self.context.new_page()
+            await page.goto(url, wait_until='networkidle')
+
+            # Extract text content
+            content = await self.extract_content(page)
+
+            # Analyze visual elements
+            visual_analysis = await self.analyze_visual_content(page)
+
+            # Extract and analyze images
+            images = await self._extract_images(page)
+            image_analyses = []
+            for img in images[:3]:  # Limit to first 3 images
+                if img.get('data'):
+                    analysis = await self.gemini.analyze_image(
+                        img['data'],
+                        f"Analizza questa immagine nel contesto di: {context}"
+                    )
+                    image_analyses.append({
+                        'src': img['src'],
+                        'analysis': analysis
+                    })
+
+            # Generate semantic understanding
+            semantic_analysis = await self.gemini.generate_text(
+                f"""Analizza semanticamente questo contenuto web:
+                Testo: {content.get('content', '')}
+                Contesto richiesto: {context}
+                Analisi visiva: {visual_analysis.get('visual_analysis', '')}
+                """
+            )
+
+            return {
+                'url': url,
+                'content': content,
+                'visual_analysis': visual_analysis,
+                'image_analyses': image_analyses,
+                'semantic_understanding': semantic_analysis,
+                'metadata': await self._extract_metadata(page)
+            }
+
+        except Exception as e:
+            logger.error(f"Error in semantic browsing: {str(e)}")
+            return {'error': str(e)}
+        finally:
+            if page:
+                await page.close()
+
+    async def _extract_images(self, page: Page) -> List[Dict[str, Any]]:
+        """Extract images from page."""
+        images = []
+        try:
+            img_elements = await page.query_selector_all('img')
+            for img in img_elements:
+                src = await img.get_attribute('src')
+                if src:
+                    try:
+                        # Get image data
+                        img_data = await page.evaluate(
+                            'src => fetch(src).then(r => r.blob()).then(b => new Promise((resolve) => {const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(b);}))',
+                            src
+                        )
+                        images.append({
+                            'src': src,
+                            'data': img_data,
+                            'alt': await img.get_attribute('alt')
+                        })
+                    except Exception as e:
+                        logger.warning(f"Could not fetch image {src}: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error extracting images: {str(e)}")
+        return images
+
+    async def _extract_metadata(self, page: Page) -> Dict[str, Any]:
+        """Extract enhanced metadata."""
+        return await page.evaluate('''() => {
+            const metadata = {};
+
+            // Open Graph metadata
+            document.querySelectorAll('meta[property^="og:"]').forEach(meta => {
+                metadata[meta.getAttribute('property')] = meta.getAttribute('content');
+            });
+
+            // Schema.org metadata
+            const schemas = document.querySelectorAll('[itemtype]');
+            if (schemas.length) {
+                metadata.schemas = Array.from(schemas).map(schema => ({
+                    type: schema.getAttribute('itemtype'),
+                    props: Array.from(schema.querySelectorAll('[itemprop]')).map(prop => ({
+                        name: prop.getAttribute('itemprop'),
+                        content: prop.textContent.trim()
+                    }))
+                }));
+            }
+
+            return metadata;
+        }''')
+
+    async def extract_content(self, page: Page) -> Dict[str, Any]:
+        """Extract and analyze page content."""
+        try:
+            html_content = await page.content()
+            text_content = trafilatura.extract(html_content)
+
+            if not text_content:
+                text_content = await page.evaluate('''() => {
+                    const elements = document.querySelectorAll('script, style, header, footer, nav');
+                    elements.forEach(el => el.remove());
+                    return document.body.textContent.trim();
+                }''')
+
+            return {
+                "content": text_content,
+                "title": await page.title(),
+                "url": page.url
+            }
+
+        except Exception as e:
+            logger.error(f"Error extracting content: {str(e)}")
+            return {"error": str(e)}
+
     async def close(self) -> None:
-        """
-        Close the browser and context.
-        """
+        """Close browser and context."""
         if self.context:
             await self.context.close()
         if self.browser:
             await self.browser.close()
-        logger.debug("Browser and context closed")
     
     PROXY_LIST = os.environ.get("PROXY_LIST", "").split(",")  # Lista di proxy in formato user:pass@host:port
     MIN_DELAY = 2  # Secondi minimi tra le richieste
@@ -492,3 +615,7 @@ class BrowserController:
         
         logger.info(f"Completed browsing task: {task.task_id}")
         return results
+
+    async def _handle_captcha(self, route):
+        # Placeholder for captcha handling (implementation needed)
+        await route.continue_()
