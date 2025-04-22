@@ -62,7 +62,18 @@ async def run_research(query: str):
         st.session_state.research_system = system
         with st.spinner("Esecuzione ricerca in corso..."):
             try:
-                results = await system.execute_research_workflow(query)
+                # Create research plan
+                plan = await system.create_research_plan(query)
+                
+                # Execute research
+                findings = await system.execute_web_research(plan)
+                
+                # Validate findings
+                validated = await system.validate_findings(findings)
+                
+                # Generate output
+                results = await system.generate_output(plan, validated)
+                
                 st.session_state.research_results = results
                 return results
             except Exception as e:
