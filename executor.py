@@ -25,9 +25,19 @@ from pydantic import BaseModel, Field
 
 try:
     from playwright.async_api import async_playwright, Page, Browser
+    # Verifica che il browser sia disponibile
+    import subprocess
+    try:
+        # Questo è un check semplificato e potrebbe non funzionare in tutti gli ambienti
+        subprocess.run(["which", "chromium"], check=True, capture_output=True)
+        browser_available = True
+    except (subprocess.SubprocessError, FileNotFoundError):
+        browser_available = False
+        logging.warning("Browser Chromium non trovato. La navigazione web sarà simulata.")
     playwright_available = True
 except ImportError:
     playwright_available = False
+    browser_available = False
     logging.warning("Playwright non è disponibile. Alcune funzionalità di navigazione web saranno limitate.")
 
 # Configurazione del logger
@@ -175,16 +185,16 @@ class ResearchExecutor:
         Returns:
             Oggetto WebPage con i contenuti
         """
+        # Se Playwright o il browser non sono disponibili, usiamo un fallback con requests
+        if not playwright_available or not browser_available:
+            return await self._fallback_browse_url(url)
+        
+        # Prova ad usare Playwright se disponibile
         if not self.browser:
             success = await self.initialize_browser()
             if not success:
-                logger.error("Impossibile inizializzare il browser per la navigazione")
-                return WebPage(
-                    url=url,
-                    load_status="failed",
-                    title="Browser non disponibile",
-                    text_content=""
-                )
+                logger.info("Impossibile inizializzare il browser, uso metodo alternativo")
+                return await self._fallback_browse_url(url)
         
         try:
             start_time = time.time()
@@ -227,12 +237,121 @@ class ResearchExecutor:
             
         except Exception as e:
             logger.error(f"Errore nella navigazione a {url}: {str(e)}")
+            # In caso di errore, prova con il fallback
+            return await self._fallback_browse_url(url)
+    
+    async def _fallback_browse_url(self, url: str) -> WebPage:
+        """
+        Metodo alternativo per estrarre contenuto da URL quando Playwright non è disponibile.
+        Utilizza requests e/o trafilatura se disponibile.
+        
+        Args:
+            url: URL da visitare
+            
+        Returns:
+            Oggetto WebPage con i contenuti
+        """
+        logger.info(f"Utilizzando metodo alternativo per {url}")
+        
+        try:
+            # Prova a importare trafilatura se disponibile
+            try:
+                import trafilatura
+                trafilatura_available = True
+            except ImportError:
+                trafilatura_available = False
+            
+            import requests
+            from bs4 import BeautifulSoup
+            
+            start_time = time.time()
+            
+            # Scarica la pagina
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            html_content = response.text
+            
+            # Estrai il titolo con BeautifulSoup
+            soup = BeautifulSoup(html_content, 'html.parser')
+            title = soup.title.string if soup.title else "Titolo non disponibile"
+            
+            # Estrai il testo
+            if trafilatura_available:
+                # Usa trafilatura per estrarre il testo principale
+                text_content = trafilatura.extract(html_content)
+            else:
+                # Fallback a BeautifulSoup
+                text_content = soup.get_text(separator='\n', strip=True)
+            
+            # Calcoliamo il tempo di caricamento
+            load_time = int((time.time() - start_time) * 1000)
+            
+            logger.info(f"Contenuto estratto con successo da {url} (metodo alternativo)")
+            
             return WebPage(
                 url=url,
-                load_status="failed",
-                title=f"Errore: {str(e)}",
-                text_content=""
+                title=title,
+                text_content=text_content,
+                html_content=html_content,
+                screenshot_path=None,  # Non possiamo ottenere screenshot
+                load_status="success",
+                load_time_ms=load_time
             )
+            
+        except Exception as e:
+            logger.error(f"Errore nell'estrazione alternativa da {url}: {str(e)}")
+            
+            # Utilizza il modello LLM per sintetizzare contenuto
+            try:
+                prompt = f"""
+                Sei un assistente di ricerca che deve aiutare a ottenere informazioni dall'URL: {url}
+                
+                Purtroppo, non è stato possibile accedere direttamente all'URL. Per favore, fornisci:
+                
+                1. Un possibile titolo per la pagina basato sull'URL
+                2. Una descrizione di cosa ci si potrebbe aspettare di trovare su questa pagina
+                3. Alcune informazioni generali sull'argomento trattato, basate sulla tua conoscenza
+                
+                Formatta la risposta come contenuto informativo che potrebbe essere trovato nella pagina.
+                """
+                
+                result = self.model.generate(
+                    prompt=prompt,
+                    task_type=ModelType.EXECUTOR,
+                    temperature=0.7,
+                    max_tokens=2000
+                )
+                
+                synthesized_content = result.get("response", "Non è stato possibile generare contenuto alternativo")
+                
+                # Estrai un titolo plausibile dall'URL
+                url_title = url.split("/")[-1].replace("-", " ").replace("_", " ").title()
+                if not url_title or url_title == "":
+                    domain = url.split("//")[-1].split("/")[0]
+                    url_title = f"Pagina su {domain}"
+                
+                return WebPage(
+                    url=url,
+                    title=url_title,
+                    text_content=f"[CONTENUTO SINTETIZZATO]\n\n{synthesized_content}\n\n[NOTA: Questo contenuto è stato generato artificialmente perché non è stato possibile accedere direttamente all'URL.]",
+                    html_content=None,
+                    screenshot_path=None,
+                    load_status="synthesized",
+                    load_time_ms=0
+                )
+                
+            except Exception as synth_error:
+                logger.error(f"Impossibile sintetizzare contenuto per {url}: {str(synth_error)}")
+                return WebPage(
+                    url=url,
+                    load_status="failed",
+                    title=f"Errore nell'accesso a {url}",
+                    text_content=f"Non è stato possibile accedere a questa URL. Errore: {str(e)}"
+                )
     
     async def extract_content(self, webpage: WebPage) -> PageContent:
         """

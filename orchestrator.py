@@ -14,17 +14,36 @@ import json
 import logging
 import asyncio
 import os
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Callable
 from datetime import datetime
 import uuid
 import time
-
-from prefect import flow, task
+import traceback
 
 from planner import ResearchPlanner, ResearchPlan
 from executor import ResearchExecutor, ResearchTask, ResearchResult
 from validator import ContentValidator
 from generator import DocumentGenerator, Document
+
+# Decoratori semplificati senza Prefect
+def task(func):
+    """Decoratore semplice per sostituire Prefect task."""
+    async def wrapper(*args, **kwargs):
+        return await func(*args, **kwargs)
+    return wrapper
+
+def flow(name=None):
+    """Decoratore semplice per sostituire Prefect flow."""
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Error in flow {name or func.__name__}: {str(e)}")
+                traceback.print_exc()
+                raise
+        return wrapper
+    return decorator
 
 # Configurazione del logger
 logging.basicConfig(level=logging.INFO)

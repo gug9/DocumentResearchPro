@@ -6,7 +6,8 @@ import logging
 import json
 import asyncio
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from functools import wraps
+from typing import Dict, Any, List, Optional, Union
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 
 # Configure logging
@@ -17,15 +18,25 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "advanced-research-system-secret")
 
-# Import components after Flask initialization
+# Import research system components
 try:
-    from research_system import ResearchSystem, ResearchPlan, ContentFinding, ResearchOutput
+    # Import adapter for model access
+    from model_adapter import ModelAdapter
+    
+    # Import main components
+    from planner import ResearchPlanner, ResearchPlan
+    from executor import ResearchExecutor, ResearchTask
+    from validator import ContentValidator
+    from generator import DocumentGenerator
+    from orchestrator import ResearchOrchestrator
+    
     research_initialized = True
+    logger.info("Research system components imported successfully")
 except ImportError as e:
     logger.warning(f"Could not import research system components: {e}")
     research_initialized = False
 
-# Check for API keys and display appropriate warnings
+# Check for Gemini API key
 if os.environ.get("GEMINI_API_KEY"):
     logger.info("Gemini API key found in environment variables")
     gemini_api_configured = True
@@ -33,28 +44,76 @@ else:
     logger.warning("Gemini API key not found in environment variables")
     gemini_api_configured = False
 
-# Global research system instance
-research_system = None
+# Global orchestrator instance
+orchestrator = None
 
-def get_research_system():
-    """Get or initialize the research system."""
-    global research_system
-    if research_system is None and research_initialized:
+def get_orchestrator():
+    """Get or initialize the research orchestrator."""
+    global orchestrator
+    if orchestrator is None and research_initialized:
         try:
-            research_system = ResearchSystem()
-            logger.info("Research system initialized")
+            orchestrator = ResearchOrchestrator()
+            logger.info("Research orchestrator initialized")
         except Exception as e:
-            logger.error(f"Error initializing research system: {e}")
-    return research_system
+            logger.error(f"Error initializing research orchestrator: {e}")
+    return orchestrator
+
+def async_route(f):
+    """Decorator to handle async route functions."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        return asyncio.run(f(*args, **kwargs))
+    return wrapper
 
 @app.route('/')
 def index():
     """Render the main application page."""
+    # Check Ollama availability
+    ollama_status = {"available": False}
+    if research_initialized:
+        try:
+            model_adapter = ModelAdapter()
+            ollama_status = model_adapter.check_ollama_installation()
+        except Exception as e:
+            logger.error(f"Error checking Ollama status: {e}")
+    
     return render_template('index.html', 
-                          gemini_configured=gemini_api_configured)
+                          gemini_configured=gemini_api_configured,
+                          ollama_status=ollama_status)
+
+@app.route('/api/check-system-status')
+def check_system_status():
+    """Check the status of the research system components."""
+    if not research_initialized:
+        return jsonify({
+            "status": "error",
+            "message": "Research system components not initialized",
+            "gemini_configured": gemini_api_configured,
+            "ollama_available": False
+        })
+    
+    try:
+        # Check status using the model adapter
+        model_adapter = ModelAdapter()
+        status = model_adapter.check_ollama_installation()
+        
+        return jsonify({
+            "status": "ok",
+            "gemini_configured": status["gemini_available"],
+            "ollama_available": status["ollama_available"],
+            "ollama_models": status["models_available"] if status["ollama_available"] else [],
+            "deepseek_available": status["deepseek_available"] if status["ollama_available"] else False
+        })
+    except Exception as e:
+        logger.error(f"Error checking system status: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "gemini_configured": gemini_api_configured
+        })
 
 @app.route('/api/create-plan', methods=['POST'])
-async def create_research_plan():
+def create_research_plan():
     """Create a research plan based on a user prompt."""
     if not request.is_json:
         return jsonify({"error": "Expected JSON request"}), 400
@@ -65,14 +124,20 @@ async def create_research_plan():
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
     
-    system = get_research_system()
-    if not system:
+    if not research_initialized:
         return jsonify({"error": "Research system not initialized"}), 500
     
     try:
-        # Run in an async executor
-        plan = await system.create_research_plan(prompt)
+        # Create plan
+        planner = ResearchPlanner()
+        plan = planner.create_research_plan(prompt)
+        
+        # Store in session
+        session['plan'] = json.loads(plan.json())
+        session['prompt'] = prompt
+        
         return jsonify({
+            "plan_id": plan.task_id,
             "plan": json.loads(plan.json())
         })
     except Exception as e:
@@ -80,8 +145,9 @@ async def create_research_plan():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/start-research', methods=['POST'])
+@async_route
 async def start_research():
-    """Start a research task based on a user prompt."""
+    """Start a complete research workflow based on a user prompt."""
     if not request.is_json:
         return jsonify({"error": "Expected JSON request"}), 400
     
@@ -91,109 +157,120 @@ async def start_research():
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
     
-    system = get_research_system()
-    if not system:
-        return jsonify({"error": "Research system not initialized"}), 500
+    orchestrator = get_orchestrator()
+    if not orchestrator:
+        return jsonify({"error": "Research orchestrator not initialized"}), 500
     
     try:
-        # Create a plan first
-        plan = await system.create_research_plan(prompt)
-        
-        # Store plan in session
-        session['plan'] = json.loads(plan.json())
-        session['task_id'] = str(datetime.now().strftime("%Y%m%d_%H%M%S"))
+        # Start the workflow
+        document = await orchestrator.execute_research_workflow(prompt)
         
         return jsonify({
-            "task_id": session['task_id'],
-            "plan": session['plan']
-        })
-    except Exception as e:
-        logger.error(f"Error starting research: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/execute-research', methods=['POST'])
-async def execute_research():
-    """Execute a research task."""
-    if not request.is_json:
-        return jsonify({"error": "Expected JSON request"}), 400
-    
-    data = request.json
-    task_id = data.get('task_id', session.get('task_id'))
-    sources = data.get('sources')
-    depth = data.get('depth', 2)
-    
-    if not task_id:
-        return jsonify({"error": "No task ID provided"}), 400
-    
-    system = get_research_system()
-    if not system:
-        return jsonify({"error": "Research system not initialized"}), 500
-    
-    # Get plan from session or create a new one
-    plan_dict = session.get('plan')
-    if not plan_dict:
-        return jsonify({"error": "No research plan in session"}), 400
-    
-    try:
-        # Convert plan dict back to object
-        plan = ResearchPlan(**plan_dict)
-        
-        # If sources were provided, update the plan
-        if sources:
-            for question in plan.questions:
-                question.sources = sources
-        
-        # Update depth if provided
-        if depth:
-            plan.depth = depth
-        
-        # Execute research
-        findings = await system.execute_web_research(plan)
-        
-        # Validate findings
-        validated = await system.validate_findings(findings)
-        
-        # Generate output
-        output = await system.generate_output(plan, validated)
-        
-        # Save results to file for later retrieval
-        filename = f"research_results/{task_id}.json"
-        os.makedirs("research_results", exist_ok=True)
-        with open(filename, "w") as f:
-            f.write(output.json())
-        
-        return jsonify({
-            "task_id": task_id,
             "status": "completed",
-            "result_path": filename
+            "document_id": document.document_id,
+            "title": document.metadata.title,
+            "sections": len(document.sections),
+            "word_count": document.metadata.word_count
         })
     except Exception as e:
         logger.error(f"Error executing research: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/results/<task_id>')
-def get_research_results(task_id):
-    """Get results for a research task."""
-    filename = f"research_results/{task_id}.json"
+@app.route('/api/research-status/<research_id>')
+def get_research_status(research_id):
+    """Get the status of a research workflow."""
+    orchestrator = get_orchestrator()
+    if not orchestrator:
+        return jsonify({"error": "Research orchestrator not initialized"}), 500
     
+    status = orchestrator.get_research_status(research_id)
+    if "error" in status:
+        return jsonify(status), 404
+    
+    return jsonify(status)
+
+@app.route('/api/active-research')
+def list_active_research():
+    """List all active research workflows."""
+    orchestrator = get_orchestrator()
+    if not orchestrator:
+        return jsonify({"error": "Research orchestrator not initialized"}), 500
+    
+    research_list = orchestrator.list_active_research()
+    return jsonify({"research": research_list})
+
+@app.route('/api/document/<document_id>')
+def get_document(document_id):
+    """Get a generated document."""
     try:
-        with open(filename, "r") as f:
-            results = json.load(f)
-        return jsonify(results)
+        with open(f"documents/{document_id}.json", "r") as f:
+            document = json.load(f)
+        return jsonify(document)
     except FileNotFoundError:
-        return jsonify({"error": f"No results found for task {task_id}"}), 404
+        return jsonify({"error": f"Document {document_id} not found"}), 404
     except Exception as e:
-        logger.error(f"Error retrieving results: {e}")
+        logger.error(f"Error retrieving document: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/document/<document_id>/markdown')
+def get_document_markdown(document_id):
+    """Get a document in markdown format."""
+    try:
+        with open(f"documents/{document_id}.md", "r") as f:
+            markdown = f.read()
+        
+        return jsonify({
+            "document_id": document_id,
+            "markdown": markdown
+        })
+    except FileNotFoundError:
+        return jsonify({"error": f"Document {document_id} not found"}), 404
+    except Exception as e:
+        logger.error(f"Error retrieving document markdown: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/documents')
+def list_documents():
+    """List all available documents."""
+    try:
+        documents = []
+        
+        # Check if directory exists
+        if not os.path.exists("documents"):
+            return jsonify({"documents": []})
+        
+        # List JSON files
+        for filename in os.listdir("documents"):
+            if filename.endswith(".json"):
+                document_id = filename[:-5]  # Remove .json extension
+                try:
+                    with open(f"documents/{filename}", "r") as f:
+                        document = json.load(f)
+                    
+                    # Extract basic metadata
+                    documents.append({
+                        "document_id": document_id,
+                        "title": document.get("metadata", {}).get("title", "Untitled"),
+                        "created_at": document.get("generated_at", "Unknown"),
+                        "word_count": document.get("metadata", {}).get("word_count", 0)
+                    })
+                except Exception as e:
+                    logger.error(f"Error reading document {filename}: {e}")
+        
+        return jsonify({"documents": documents})
+    except Exception as e:
+        logger.error(f"Error listing documents: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/results')
 def results_page():
     """Render the results page."""
-    task_id = request.args.get('task_id')
-    if not task_id:
+    document_id = request.args.get('document_id')
+    
+    if not document_id:
         return redirect(url_for('index'))
     
-    return render_template('results.html', task_id=task_id)
+    return render_template('results.html', document_id=document_id)
 
 @app.route('/api/set-gemini-key', methods=['POST'])
 def set_gemini_key():
@@ -209,10 +286,12 @@ def set_gemini_key():
     
     # Set in environment
     os.environ['GEMINI_API_KEY'] = api_key
+    global gemini_api_configured
+    gemini_api_configured = True
     
-    # Reinitialize research system
-    global research_system
-    research_system = None  # Will be reinitialized on next use
+    # Reinitialize orchestrator
+    global orchestrator
+    orchestrator = None  # Will be reinitialized on next use
     
     return jsonify({"status": "API key set successfully"})
 
