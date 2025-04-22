@@ -6,14 +6,7 @@ from typing import List, Dict, Any, Optional
 
 from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper, WikipediaAPIWrapper
-
-# Fix: Update to langchain_ollama to fix the deprecation warning
-try:
-    from langchain_ollama import ChatOllama
-except ImportError:
-    # Fallback if not installed
-    from langchain_community.chat_models import ChatOllama
-    logging.warning("Using deprecated ChatOllama from langchain_community. Please install langchain_ollama.")
+from langchain_ollama import ChatOllama
 
 from langchain.prompts import ChatPromptTemplate
 from langchain.output_parsers import PydanticOutputParser
@@ -161,6 +154,11 @@ class ResearchSystem:
         if self.browser:
             await self.browser.close()
         logger.info("Browser closed")
+
+    async def close(self):
+        """Close all resources."""
+        await self.close_browser()
+        logger.info("Research system closed")
 
     def fix_json_structure(self, json_data):
         """Fix common JSON structure issues from LLM responses."""
