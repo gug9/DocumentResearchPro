@@ -27,11 +27,26 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_DEEPSEEK_MODEL = os.environ.get("OLLAMA_DEEPSEEK_MODEL", "deepseek-coder:instruct")
 OLLAMA_TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "5"))  # 5 secondi di timeout predefinito
 
-# Configurazione Gemini
-#GEMINI_MODEL = "gemini-1.5-pro"
-GEMINI_MODEL = "gemma-3-27b-it"
+# Configurazione LLM
+LLM_PROVIDERS = {
+    "google": {
+        "models": {
+            "gemini-pro": "gemini-pro",
+            "gemma-it": "gemma-3-27b-it"
+        },
+        "api_key": os.environ.get("GEMINI_API_KEY")
+    },
+    "openai": {
+        "models": {
+            "gpt-4": "gpt-4",
+            "gpt-3.5-turbo": "gpt-3.5-turbo"
+        },
+        "api_key": os.environ.get("OPENAI_API_KEY")
+    }
+}
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+DEFAULT_PROVIDER = "google"
+DEFAULT_MODEL = "gemma-it"
 
 class ModelType:
     """Enum per i tipi di modelli supportati."""

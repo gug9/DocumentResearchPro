@@ -33,17 +33,46 @@ class BrowserController:
         self.browser = None
         self.context = None
     
+    USER_AGENTS = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+    ]
+    
     async def initialize(self) -> None:
         """
-        Initialize the browser and context for headless browsing.
+        Initialize the browser and context for headless browsing with anti-detection measures.
         """
+        import random
+        
         playwright = await async_playwright().start()
-        self.browser = await playwright.chromium.launch(headless=True)
-        self.context = await self.browser.new_context(
-            viewport={'width': 1280, 'height': 800},
-            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        self.browser = await playwright.chromium.launch(
+            headless=True,
+            args=['--disable-blink-features=AutomationControlled']
         )
-        logger.debug("Browser and context initialized")
+        
+        # Rotate user agent
+        user_agent = random.choice(self.USER_AGENTS)
+        
+        # More realistic browser context
+        self.context = await self.browser.new_context(
+            viewport={'width': random.randint(1024, 1920), 'height': random.randint(768, 1080)},
+            user_agent=user_agent,
+            locale='it-IT',
+            timezone_id='Europe/Rome',
+            geolocation={'latitude': 41.9028, 'longitude': 12.4964},
+            has_touch=True,
+            is_mobile=False,
+            device_scale_factor=random.choice([1, 2])
+        )
+        
+        # Modify navigator properties
+        await self.context.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            Object.defineProperty(navigator, 'automation', { get: () => undefined });
+        """)
+        
+        logger.debug(f"Browser initialized with UA: {user_agent}")
     
     async def close(self) -> None:
         """
@@ -55,9 +84,13 @@ class BrowserController:
             await self.browser.close()
         logger.debug("Browser and context closed")
     
+    PROXY_LIST = os.environ.get("PROXY_LIST", "").split(",")  # Lista di proxy in formato user:pass@host:port
+    MIN_DELAY = 2  # Secondi minimi tra le richieste
+    MAX_DELAY = 5  # Secondi massimi tra le richieste
+    
     async def open_url(self, url: str) -> Tuple[Page, bool]:
         """
-        Open a URL in a new page.
+        Open a URL in a new page with anti-detection measures.
         
         Args:
             url: The URL to open
@@ -71,7 +104,26 @@ class BrowserController:
         logger.info(f"Opening URL: {url}")
         
         try:
+            # Random delay tra le richieste
+            await asyncio.sleep(random.uniform(self.MIN_DELAY, self.MAX_DELAY))
+            
+            # Rotazione proxy se disponibili
+            if self.PROXY_LIST:
+                proxy = random.choice(self.PROXY_LIST)
+                self.context = await self.browser.new_context(
+                    proxy={"server": f"http://{proxy}"},
+                    **self.context.options
+                )
+            
             page = await self.context.new_page()
+            
+            # Simula comportamento umano
+            await page.set_default_navigation_timeout(60000)
+            await page.set_default_timeout(30000)
+            
+            # Intercetta e gestisci i CAPTCHA
+            await page.route('**/*', lambda route: self._handle_captcha(route))
+            
             response = await page.goto(url, wait_until='networkidle', timeout=30000)
             
             if not response:
