@@ -1,0 +1,38 @@
+NameError
+NameError: name 'GEMINI_API_KEY' is not defined
+
+Traceback (most recent call last)
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+return self.wsgi_app(environ, start_response)
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+response = self.handle_exception(e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+response = self.full_dispatch_request()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+rv = self.handle_user_exception(e)
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+rv = self.dispatch_request()
+     ^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/debug_interface.py", line 77, in index
+orchestrator = ResearchOrchestrator()
+               ^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/orchestrator.py", line 60, in __init__
+self.planner = ResearchPlanner()
+               ^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/planner.py", line 89, in __init__
+self.model = ModelAdapter()
+             ^^^^^^^^^^^^^^
+File "/home/runner/workspace/model_adapter.py", line 244, in __init__
+self.gemini_available = GeminiClient.is_configured()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/model_adapter.py", line 141, in is_configured
+return bool(GEMINI_API_KEY)
+            ^^^^^^^^^^^^^^
+NameError: name 'GEMINI_API_KEY' is not defined

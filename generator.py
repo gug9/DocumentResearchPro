@@ -326,9 +326,14 @@ class DocumentGenerator:
             document: Documento da salvare
         """
         document_id = document.document_id
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Crea la directory per i documenti se non esiste
         os.makedirs("documents", exist_ok=True)
+        
+        # Crea una subdirectory per questo documento
+        doc_dir = os.path.join("documents", f"{timestamp}_{document_id}")
+        os.makedirs(doc_dir, exist_ok=True)
         
         # Salva il JSON del documento
         with open(f"documents/{document_id}.json", "w") as f:
@@ -353,6 +358,18 @@ class DocumentGenerator:
         Returns:
             Contenuto markdown
         """
+        # Ensure sections exist
+        if not hasattr(document, 'sections'):
+            document.sections = []
+            
+        # Ensure metadata exists
+        if not hasattr(document, 'metadata'):
+            from models import DocumentMetadata
+            document.metadata = DocumentMetadata(
+                title="Documento senza titolo",
+                description="Nessuna descrizione disponibile"
+            )
+            
         markdown = f"# {document.metadata.title}\n\n"
         
         # Aggiungi metadati
