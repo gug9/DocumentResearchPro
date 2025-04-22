@@ -1,214 +1,246 @@
+"""
+Modulo Planner per il Sistema AI di Ricerca Documentale.
+Responsabile della generazione del piano di ricerca strutturato a partire da una query.
+
+Utilizza DeepSeek via Ollama (con fallback a Gemini) per generare:
+1. Interpretazione semantica della query
+2. Struttura gerarchica di task di ricerca
+3. Fonti suggerite per ogni task
+"""
+
 import json
 import logging
-from typing import List, Dict, Any
+from typing import Dict, Any, List, Optional, Union
+from datetime import datetime
+import uuid
 
-from models import ResearchPlan, ResearchQuestion, ResearchTask
+from model_adapter import ModelAdapter, ModelType
+from pydantic import BaseModel, Field
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+# Configurazione del logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Schema per la struttura del piano di ricerca
+class ResearchQuestion(BaseModel):
+    """Domanda di ricerca con fonti suggerite."""
+    question: str
+    sources: List[str] = Field(default_factory=list)
+    importance: int = Field(5, ge=1, le=10)
+    notes: Optional[str] = None
+
+class ResearchSection(BaseModel):
+    """Sezione del piano di ricerca."""
+    title: str
+    description: str
+    questions: List[ResearchQuestion] = Field(default_factory=list)
+    order: int = 0
+
+class ResearchPlan(BaseModel):
+    """Piano di ricerca completo."""
+    task_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    objective: str
+    description: str
+    sections: List[ResearchSection] = Field(default_factory=list)
+    depth: int = Field(2, ge=1, le=3)
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+# Prompt template per il Planner
+PLANNER_PROMPT_TEMPLATE = """
+# Istruzioni per la Pianificazione di Ricerca Documentale
+
+Sei un esperto pianificatore di ricerca documentale. Il tuo compito è creare un piano strutturato per condurre una ricerca approfondita sul seguente argomento:
+
+ARGOMENTO: {query}
+
+## Compiti:
+1. Analizza attentamente la query e identifica l'obiettivo principale della ricerca
+2. Crea 2-5 sezioni logiche per strutturare la ricerca
+3. Per ogni sezione, genera 1-3 domande di ricerca specifiche
+4. Per ogni domanda, suggerisci 1-5 potenziali fonti online (URL) da consultare
+5. Assegna un livello di importanza a ogni domanda (da 1 a 10)
+6. Determina la profondità di ricerca necessaria (da 1 a 3, dove 1=base, 2=standard, 3=approfondita)
+
+## Output:
+Fornisci un piano di ricerca completo in formato JSON con la seguente struttura:
+- task_id: un identificatore univoco
+- objective: l'obiettivo principale della ricerca
+- description: una descrizione generale della ricerca
+- sections: un array di sezioni, ciascuna con:
+  - title: il titolo della sezione
+  - description: una breve descrizione della sezione
+  - questions: un array di domande, ciascuna con:
+    - question: la domanda di ricerca
+    - sources: un array di URL suggeriti
+    - importance: l'importanza della domanda (1-10)
+- depth: la profondità di ricerca consigliata (1-3)
+
+IMPORTANTE: Le fonti suggerite devono essere URL realistici e pertinenti, come articoli accademici, siti ufficiali, o forum specializzati.
+"""
 
 class ResearchPlanner:
     """
-    Planner module that converts user prompts into structured research plans.
-    
-    This module is responsible for:
-    1. Analyzing user prompts to identify key research areas
-    2. Generating specific research questions
-    3. Identifying reliable sources for each question
-    4. Determining appropriate research depth
+    Pianificatore per la ricerca documentale.
+    Utilizza un LLM per generare un piano di ricerca strutturato.
     """
     
     def __init__(self):
-        """Initialize the ResearchPlanner."""
-        logger.debug("Initializing ResearchPlanner")
-    
-    def _extract_topics(self, prompt: str) -> List[str]:
-        """
-        Extract main topics from the user prompt.
+        """Inizializza il pianificatore con l'adattatore del modello."""
+        self.model = ModelAdapter()
+        logger.info("ResearchPlanner inizializzato")
         
-        Args:
-            prompt: The user's research prompt
-            
-        Returns:
-            A list of main topics identified in the prompt
-        """
-        # This is a simplified implementation
-        # In a real-world scenario, this could use NLP techniques
-        
-        # Basic topic extraction based on common keywords
-        topics = []
-        prompt_lower = prompt.lower()
-        
-        # Example topic identification logic
-        if "cybersecurity" in prompt_lower or "cyber security" in prompt_lower:
-            topics.append("cybersecurity")
-        
-        if "framework" in prompt_lower:
-            topics.append("frameworks")
-            
-        if "eu" in prompt_lower or "europe" in prompt_lower or "european" in prompt_lower:
-            topics.append("european union")
-            
-        # Extract years if mentioned
-        import re
-        years = re.findall(r'\b20\d\d\b', prompt)
-        if years:
-            topics.append(f"years {'-'.join(years)}")
-            
-        # If no specific topics were identified, use generic approach
-        if not topics:
-            # Split by common punctuation and get longer phrases
-            segments = re.split(r'[.,;:]', prompt)
-            topics = [s.strip() for s in segments if len(s.strip()) > 15][:3]
-            
-        logger.debug(f"Extracted topics: {topics}")
-        return topics
-    
-    def _generate_questions(self, topics: List[str], prompt: str) -> List[Dict[str, Any]]:
-        """
-        Generate research questions based on identified topics.
-        
-        Args:
-            topics: List of identified topics
-            prompt: Original user prompt
-            
-        Returns:
-            List of questions with potential sources
-        """
-        questions = []
-        
-        # Generate questions based on the provided example
-        if "cybersecurity" in topics or "frameworks" in topics:
-            questions.append({
-                "question": "What are the main cybersecurity frameworks adopted by the EU?",
-                "sources": [
-                    "https://www.enisa.europa.eu/topics/cybersecurity-policy/",
-                    "https://digital-strategy.ec.europa.eu/en/policies/cybersecurity"
-                ]
-            })
-            
-            questions.append({
-                "question": "How have EU cybersecurity frameworks evolved over time?",
-                "sources": [
-                    "https://www.europarl.europa.eu/thinktank/en/document/EPRS_BRI(2017)614643",
-                    "https://www.consilium.europa.eu/en/policies/cybersecurity/"
-                ]
-            })
-            
-            questions.append({
-                "question": "What are the key differences between current and previous EU cybersecurity frameworks?",
-                "sources": [
-                    "https://www.enisa.europa.eu/publications/",
-                    "https://ec.europa.eu/digital-single-market/en/cybersecurity"
-                ]
-            })
+        # Verifica la disponibilità dei modelli
+        status = self.model.check_ollama_installation()
+        if status["ollama_available"]:
+            logger.info("Utilizzo DeepSeek via Ollama per la pianificazione")
+            if not status["deepseek_available"]:
+                logger.warning("Modello DeepSeek non disponibile in Ollama")
         else:
-            # Generic question generation based on the prompt
-            # This is a simplified approach - in a real system, this would use more sophisticated NLP
-            base_questions = [
-                f"What are the main developments in {prompt}?",
-                f"What are the key components of {prompt}?",
-                f"How has {prompt} evolved in recent years?"
-            ]
-            
-            for q in base_questions:
-                questions.append({
-                    "question": q,
-                    "sources": [
-                        f"https://scholar.google.com/scholar?q={'+'.join(q.split())}",
-                        f"https://www.google.com/search?q={'+'.join(q.split())}"
-                    ]
-                })
-                
-        logger.debug(f"Generated {len(questions)} research questions")
-        return questions
+            logger.info("Utilizzo Gemini per la pianificazione (fallback)")
     
-    def _determine_depth(self, prompt: str) -> int:
+    def create_research_plan(self, query: str) -> ResearchPlan:
         """
-        Determine the appropriate research depth based on the complexity of the prompt.
+        Crea un piano di ricerca strutturato a partire da una query.
         
         Args:
-            prompt: The user's research prompt
+            query: La query di ricerca dell'utente
             
         Returns:
-            Research depth level (1-3)
+            Piano di ricerca strutturato
         """
-        # Simple heuristic for depth determination
-        words = prompt.split()
+        logger.info(f"Creazione piano di ricerca per query: {query}")
         
-        if len(words) < 10:
-            return 1  # Brief prompt suggests superficial research
-        elif len(words) > 20 or "detailed" in prompt.lower() or "comprehensive" in prompt.lower():
-            return 3  # Long or explicitly detailed prompt suggests deep research
-        else:
-            return 2  # Medium depth for average prompts
-    
-    def create_research_plan(self, prompt: str) -> ResearchPlan:
-        """
-        Create a structured research plan from a user prompt.
+        # Preparazione del prompt
+        prompt = PLANNER_PROMPT_TEMPLATE.format(query=query)
         
-        Args:
-            prompt: The user's research prompt
-            
-        Returns:
-            A structured ResearchPlan object
-        """
-        logger.info(f"Creating research plan for prompt: {prompt}")
-        
-        # Extract topics from the prompt
-        topics = self._extract_topics(prompt)
-        
-        # Generate research questions with potential sources
-        question_data = self._generate_questions(topics, prompt)
-        
-        # Convert to ResearchQuestion objects
-        questions = [
-            ResearchQuestion(question=q["question"], sources=q["sources"])
-            for q in question_data
-        ]
-        
-        # Determine appropriate research depth
-        depth = self._determine_depth(prompt)
-        
-        # Create and return the research plan
-        plan = ResearchPlan(questions=questions, depth=depth)
-        logger.info(f"Created research plan with {len(questions)} questions and depth {depth}")
-        
-        return plan
-    
-    def create_research_task(self, prompt: str) -> ResearchTask:
-        """
-        Create a research task from a user prompt.
-        
-        Args:
-            prompt: The user's research prompt
-            
-        Returns:
-            A ResearchTask object
-        """
-        # First create a research plan
-        plan = self.create_research_plan(prompt)
-        
-        # Extract all sources from the plan
-        sources = []
-        for question in plan.questions:
-            sources.extend(question.sources)
-        
-        # Remove duplicates while preserving order
-        unique_sources = []
-        for source in sources:
-            if source not in unique_sources:
-                unique_sources.append(source)
-        
-        # Create and return the research task
-        task = ResearchTask(
-            objective=prompt,
-            sources=unique_sources[:5],  # Limit to top 5 sources
-            depth=plan.depth,
-            status="ready"
+        # Chiamata al modello
+        result = self.model.generate(
+            prompt=prompt,
+            task_type=ModelType.PLANNER,
+            temperature=0.3,  # Temperatura bassa per output più deterministici
+            max_tokens=4000,   # Risposta lunga per un piano dettagliato
+            format_output=True,
+            output_format=ResearchPlan.schema()
         )
         
-        logger.info(f"Created research task with ID {task.task_id}")
-        return task
+        if "error" in result and result.get("error"):
+            logger.error(f"Errore nella generazione del piano: {result['error']}")
+            # Crea un piano minimo in caso di errore
+            return ResearchPlan(
+                objective=query,
+                description=f"Piano di ricerca per: {query}",
+                sections=[
+                    ResearchSection(
+                        title="Ricerca generale",
+                        description=f"Informazioni generali su: {query}",
+                        questions=[
+                            ResearchQuestion(
+                                question=f"Quali sono le informazioni principali su {query}?",
+                                sources=["https://www.google.com"]
+                            )
+                        ]
+                    )
+                ],
+                depth=1
+            )
+        
+        # Estrai e analizza la risposta JSON
+        try:
+            # In alcuni casi, il modello potrebbe rispondere con testo prima o dopo il JSON
+            response_text = result.get("response", "")
+            
+            # Trova l'inizio e la fine del JSON
+            json_start = response_text.find("{")
+            json_end = response_text.rfind("}") + 1
+            
+            if json_start >= 0 and json_end > json_start:
+                json_str = response_text[json_start:json_end]
+                plan_dict = json.loads(json_str)
+                
+                # Valida e crea il piano
+                plan = ResearchPlan(**plan_dict)
+                logger.info(f"Piano creato con successo: {plan.task_id}")
+                return plan
+            else:
+                raise ValueError("Nessun JSON valido trovato nella risposta")
+                
+        except Exception as e:
+            logger.error(f"Errore nella conversione del piano: {str(e)}")
+            logger.error(f"Risposta raw: {result.get('response', 'Nessuna risposta')}")
+            
+            # Crea un piano di fallback
+            return ResearchPlan(
+                objective=query,
+                description=f"Piano di ricerca per: {query}",
+                sections=[
+                    ResearchSection(
+                        title="Ricerca generale",
+                        description=f"Informazioni generali su: {query}",
+                        questions=[
+                            ResearchQuestion(
+                                question=f"Quali sono le informazioni principali su {query}?",
+                                sources=["https://www.google.com"]
+                            )
+                        ]
+                    )
+                ],
+                depth=1
+            )
+    
+    def convert_plan_to_tasks(self, plan: ResearchPlan) -> List[Dict[str, Any]]:
+        """
+        Converte un piano di ricerca in una lista di task eseguibili.
+        
+        Args:
+            plan: Il piano di ricerca
+            
+        Returns:
+            Lista di task per l'orchestratore
+        """
+        tasks = []
+        
+        for section_idx, section in enumerate(plan.sections):
+            for question_idx, question in enumerate(section.questions):
+                task = {
+                    "task_id": f"{plan.task_id}_s{section_idx}_q{question_idx}",
+                    "plan_id": plan.task_id,
+                    "section": section.title,
+                    "objective": plan.objective,
+                    "question": question.question,
+                    "sources": question.sources,
+                    "importance": question.importance,
+                    "depth": plan.depth,
+                    "status": "pending"
+                }
+                tasks.append(task)
+        
+        return tasks
+
+# Test del modulo
+if __name__ == "__main__":
+    planner = ResearchPlanner()
+    
+    # Test di creazione piano
+    test_query = "Come è cambiata la regolamentazione UE sulla cybersecurity dal 2018 al 2023?"
+    plan = planner.create_research_plan(test_query)
+    
+    print(f"Piano creato con ID: {plan.task_id}")
+    print(f"Obiettivo: {plan.objective}")
+    print(f"Profondità: {plan.depth}")
+    print(f"Sezioni: {len(plan.sections)}")
+    
+    for section in plan.sections:
+        print(f"\nSEZIONE: {section.title}")
+        print(f"Descrizione: {section.description}")
+        print(f"Domande: {len(section.questions)}")
+        
+        for question in section.questions:
+            print(f"  - {question.question} (Importanza: {question.importance})")
+            for source in question.sources:
+                print(f"    * {source}")
+    
+    # Test di conversione in task
+    tasks = planner.convert_plan_to_tasks(plan)
+    print(f"\nTask generati: {len(tasks)}")
+    for task in tasks:
+        print(f"- {task['task_id']}: {task['question']}")
