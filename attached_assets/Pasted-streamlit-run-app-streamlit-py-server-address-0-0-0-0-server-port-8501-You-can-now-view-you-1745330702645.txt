@@ -1,0 +1,108 @@
+streamlit run app_streamlit.py --server.address 0.0.0.0 --server.port 8501
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://0.0.0.0:8501
+
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/streamlit/run  
+  time/scriptrunner/exec_code.py:121 in exec_func_with_error_handling                   
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/streamlit/run  
+  time/scriptrunner/script_runner.py:640 in code_to_exec                                
+                                                                                        
+  /home/guglielmov/DocumentResearchPro/app_streamlit.py:77 in <module>                  
+                                                                                        
+    74 │   │   st.error("È necessaria una API key per utilizzare Gemini Pro")           
+    75 │   else:                                                                        
+    76 │   │   with st.spinner("Inizializzazione del sistema di ricerca..."):           
+  ❱ 77 │   │   │   asyncio.run(run_research(query))                                     
+    78                                                                                  
+    79 # Display results                                                                
+    80 if st.session_state.research_results:                                            
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/asyncio/runners.py:195 in    
+  run                                                                                   
+                                                                                        
+    192 │   │   │   "asyncio.run() cannot be called from a running event loop")         
+    193 │                                                                               
+    194 │   with Runner(debug=debug, loop_factory=loop_factory) as runner:              
+  ❱ 195 │   │   return runner.run(main)                                                 
+    196                                                                                 
+    197                                                                                 
+    198 def _cancel_all_tasks(loop):                                                    
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/asyncio/runners.py:118 in    
+  run                                                                                   
+                                                                                        
+    115 │   │                                                                           
+    116 │   │   self._interrupt_count = 0                                               
+    117 │   │   try:                                                                    
+  ❱ 118 │   │   │   return self._loop.run_until_complete(task)                          
+    119 │   │   except exceptions.CancelledError:                                       
+    120 │   │   │   if self._interrupt_count > 0:                                       
+    121 │   │   │   │   uncancel = getattr(task, "uncancel", None)                      
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/asyncio/base_events.py:691   
+  in run_until_complete                                                                 
+                                                                                        
+     688 │   │   if not future.done():                                                  
+     689 │   │   │   raise RuntimeError('Event loop stopped before Future completed.')  
+     690 │   │                                                                          
+  ❱  691 │   │   return future.result()                                                 
+     692 │                                                                              
+     693 │   def stop(self):                                                            
+     694 │   │   """Stop running the event loop.                                        
+                                                                                        
+  /home/guglielmov/DocumentResearchPro/app_streamlit.py:53 in run_research              
+                                                                                        
+    50 │   │   │   await system.close()                                                 
+    51                                                                                  
+    52 async def run_research(query: str):                                              
+  ❱ 53 │   async with get_research_system() as system:                                  
+    54 │   │   st.session_state.research_system = system                                
+    55 │   │   with st.spinner("Esecuzione ricerca in corso..."):                       
+    56 │   │   │   try:                                                                 
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/contextlib.py:217 in         
+  __aexit__                                                                             
+                                                                                        
+    214 │   async def __aexit__(self, typ, value, traceback):                           
+    215 │   │   if typ is None:                                                         
+    216 │   │   │   try:                                                                
+  ❱ 217 │   │   │   │   await anext(self.gen)                                           
+    218 │   │   │   except StopAsyncIteration:                                          
+    219 │   │   │   │   return False                                                    
+    220 │   │   │   else:                                                               
+                                                                                        
+  /home/guglielmov/DocumentResearchPro/app_streamlit.py:50 in get_research_system       
+                                                                                        
+    47 │   │   yield system                                                             
+    48 │   finally:                                                                     
+    49 │   │   if system:                                                               
+  ❱ 50 │   │   │   await system.close()                                                 
+    51                                                                                  
+    52 async def run_research(query: str):                                              
+    53 │   async with get_research_system() as system:                                  
+                                                                                        
+  /home/guglielmov/DocumentResearchPro/research_system.py:160 in close                  
+                                                                                        
+    157 │                                                                               
+    158 │   async def close(self):                                                      
+    159 │   │   """Close all resources."""                                              
+  ❱ 160 │   │   await self.close_browser()                                              
+    161 │   │   logger.info("Research system closed")                                   
+    162 │                                                                               
+    163 │   def fix_json_structure(self, json_data):                                    
+                                                                                        
+  /home/guglielmov/DocumentResearchPro/research_system.py:152 in close_browser          
+                                                                                        
+    149 │                                                                               
+    150 │   async def close_browser(self):                                              
+    151 │   │   """Close the browser controller."""                                     
+  ❱ 152 │   │   if self.context:                                                        
+    153 │   │   │   await self.context.close()                                          
+    154 │   │   if self.browser:                                                        
+    155 │   │   │   await self.browser.close()                                          
+────────────────────────────────────────────────────────────────────────────────────────
+AttributeError: 'ResearchSystem' object has no attribute 'context'
