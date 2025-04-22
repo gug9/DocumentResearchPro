@@ -101,6 +101,59 @@ class ResearchSystem:
         # Initialize infrastructure components
         self.browser = None
         self.plan_parser = PydanticOutputParser(pydantic_object=ResearchPlan)
+
+    async def analyze_with_gemini_rate_limited(self, content, question, max_retries=3, retry_delay=5):
+        """
+        Analizza i contenuti con Gemini con gestione dei limiti di quota.
+        
+        Args:
+            content: Il contenuto da analizzare
+            question: La domanda di ricerca
+            max_retries: Numero massimo di tentativi
+            retry_delay: Tempo di attesa tra i tentativi in secondi
+            
+        Returns:
+            Il testo dell'analisi o None in caso di errore
+        """
+        import time
+        
+        for attempt in range(max_retries):
+            try:
+                gemini_response = self.research_engine.generate_content([
+                    "Extract the key information from this webpage content relevant to the following question. "
+                    f"Question: {question}\n\n"
+                    f"Content: {content[:30000]}",  # Ridotto a 30K per evitare problemi di quota
+                ])
+                
+                return gemini_response.text
+                
+            except Exception as e:
+                error_message = str(e)
+                logger.warning(f"Attempt {attempt+1}/{max_retries}: Gemini API error: {error_message}")
+                
+                # Se è un errore di quota (429), attendi e riprova
+                if "429" in error_message or "quota" in error_message.lower():
+                    # Aggiungi un piccolo fattore casuale per evitare richieste simultanee
+                    import random
+                    wait_time = retry_delay + random.uniform(0, 2)
+                    logger.info(f"Rate limit exceeded, waiting {wait_time:.1f} seconds before retry")
+                    await asyncio.sleep(wait_time)
+                else:
+                    # Per altri errori, esci dal ciclo
+                    logger.error(f"Non-quota error with Gemini: {error_message}")
+                    break
+        
+        # Fallback al modello locale se Gemini non funziona
+        try:
+            # Versione molto semplificata senza template complessi per evitare problemi con le parentesi graffe
+            simple_prompt = f"Analizza questo contenuto in relazione alla domanda. Domanda: {question}"
+            
+            fallback_chain = self.planner
+            result = await fallback_chain.ainvoke({"content": simple_prompt + "\n\n" + content[:10000]})
+            return result.content
+        except Exception as e:
+            logger.error(f"Fallback analysis also failed: {str(e)}")
+            return "Non è stato possibile analizzare il contenuto a causa di errori tecnici."
     
     async def perform_search(self, query: str) -> List[str]:
         """
@@ -357,16 +410,14 @@ class ResearchSystem:
                     page_content = await page.content()
                     page_title = await page.title()
                     
-                    # Use Gemini for content analysis if available
+                    # Use rate-limited Gemini for content analysis if available
                     if self.research_engine:
-                        try:
-                            gemini_response = self.research_engine.generate_content([
-                                "Extract the key information from this webpage content relevant to the following question. "
-                                f"Question: {question.question}\n\n"
-                                f"Content: {page_content[:50000]}",  # Limit content length
-                            ])
-                            
-                            analysis = gemini_response.text
+                        analysis = await self.analyze_with_gemini_rate_limited(
+                            content=page_content, 
+                            question=question.question
+                        )
+                        
+                        if analysis:
                             
                             # Create metadata
                             metadata = ContentMetadata(
@@ -392,9 +443,6 @@ class ResearchSystem:
                             )
                             
                             findings.append(finding)
-                            
-                        except Exception as e:
-                            logger.error(f"Error analyzing content with Gemini: {str(e)}")
                     
                     await page.close()
                     
