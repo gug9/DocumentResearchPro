@@ -1,0 +1,85 @@
+WARNING:root:Using deprecated ChatOllama from langchain_community. Please install langchain_ollama.
+/home/guglielmov/DocumentResearchPro/research_system.py:78: LangChainDeprecationWarning: The class `ChatOllama` was deprecated in LangChain 0.3.1 and will be removed in 1.0.0. An updated version of the class exists in the :class:`~langchain-ollama package and should be used instead. To use it run `pip install -U :class:`~langchain-ollama` and import as `from :class:`~langchain_ollama import ChatOllama``.
+  self.planner = ChatOllama(model="deepseek-r1:7b")
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/streamlit/run  
+  time/scriptrunner/exec_code.py:121 in exec_func_with_error_handling                   
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/streamlit/run  
+  time/scriptrunner/script_runner.py:640 in code_to_exec                                
+                                                                                        
+  /home/guglielmov/DocumentResearchPro/app_streamlit.py:49 in <module>                  
+                                                                                        
+    46 query = st.text_area("Inserisci la tua query di ricerca:", height=100)           
+    47                                                                                  
+    48 if st.button("Avvia Ricerca", disabled=not query):                               
+  ❱ 49 │   asyncio.run(run_research(query))                                             
+    50                                                                                  
+    51 # Display results                                                                
+    52 if st.session_state.research_results:                                            
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/asyncio/runners.py:195 in    
+  run                                                                                   
+                                                                                        
+    192 │   │   │   "asyncio.run() cannot be called from a running event loop")         
+    193 │                                                                               
+    194 │   with Runner(debug=debug, loop_factory=loop_factory) as runner:              
+  ❱ 195 │   │   return runner.run(main)                                                 
+    196                                                                                 
+    197                                                                                 
+    198 def _cancel_all_tasks(loop):                                                    
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/asyncio/runners.py:118 in    
+  run                                                                                   
+                                                                                        
+    115 │   │                                                                           
+    116 │   │   self._interrupt_count = 0                                               
+    117 │   │   try:                                                                    
+  ❱ 118 │   │   │   return self._loop.run_until_complete(task)                          
+    119 │   │   except exceptions.CancelledError:                                       
+    120 │   │   │   if self._interrupt_count > 0:                                       
+    121 │   │   │   │   uncancel = getattr(task, "uncancel", None)                      
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/asyncio/base_events.py:691   
+  in run_until_complete                                                                 
+                                                                                        
+     688 │   │   if not future.done():                                                  
+     689 │   │   │   raise RuntimeError('Event loop stopped before Future completed.')  
+     690 │   │                                                                          
+  ❱  691 │   │   return future.result()                                                 
+     692 │                                                                              
+     693 │   def stop(self):                                                            
+     694 │   │   """Stop running the event loop.                                        
+                                                                                        
+  /home/guglielmov/DocumentResearchPro/app_streamlit.py:29 in run_research              
+                                                                                        
+    26 │   │   │   await system.close()                                                 
+    27                                                                                  
+    28 async def run_research(query: str):                                              
+  ❱ 29 │   async with get_research_system() as system:                                  
+    30 │   │   st.session_state.research_system = system                                
+    31 │   │   with st.spinner("Esecuzione ricerca in corso..."):                       
+    32 │   │   │   try:                                                                 
+                                                                                        
+  /home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/contextlib.py:217 in         
+  __aexit__                                                                             
+                                                                                        
+    214 │   async def __aexit__(self, typ, value, traceback):                           
+    215 │   │   if typ is None:                                                         
+    216 │   │   │   try:                                                                
+  ❱ 217 │   │   │   │   await anext(self.gen)                                           
+    218 │   │   │   except StopAsyncIteration:                                          
+    219 │   │   │   │   return False                                                    
+    220 │   │   │   else:                                                               
+                                                                                        
+  /home/guglielmov/DocumentResearchPro/app_streamlit.py:26 in get_research_system       
+                                                                                        
+    23 │   │   yield system                                                             
+    24 │   finally:                                                                     
+    25 │   │   if system:                                                               
+  ❱ 26 │   │   │   await system.close()                                                 
+    27                                                                                  
+    28 async def run_research(query: str):                                              
+    29 │   async with get_research_system() as system:                                  
+────────────────────────────────────────────────────────────────────────────────────────
+AttributeError: 'ResearchSystem' object has no attribute 'close'
