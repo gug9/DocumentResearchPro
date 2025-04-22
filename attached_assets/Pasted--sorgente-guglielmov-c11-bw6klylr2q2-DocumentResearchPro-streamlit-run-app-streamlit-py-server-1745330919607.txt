@@ -1,0 +1,73 @@
+(sorgente) guglielmov@c11-bw6klylr2q2:~/DocumentResearchPro$ streamlit run app_streamlit.py --server.address 0.0.0.0 --server.port 8501
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://0.0.0.0:8501
+
+16:08:13.538 | INFO    | prefect - Starting temporary server on http://127.0.0.1:8101
+See https://docs.prefect.io/3.0/manage/self-host#self-host-a-prefect-server for more information on running a dedicated Prefect server.
+16:08:13.544 | INFO    | prefect - Starting temporary server on http://127.0.0.1:8631
+See https://docs.prefect.io/3.0/manage/self-host#self-host-a-prefect-server for more information on running a dedicated Prefect server.
+16:08:16.877 | ERROR   | Task run 'create_research_plan' - Error encountered when computing cache key - result will not be persisted.
+Traceback (most recent call last):
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/cache_policies.py", line 374, in compute_key
+    return hash_objects(hashed_inputs, raise_on_failure=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/utilities/hashing.py", line 89, in hash_objects
+    raise HashError(msg)
+prefect.exceptions.HashError: Unable to create hash - objects could not be serialized.
+  JSON error: Unable to serialize unknown type: <class 'research_system.ResearchSystem'>
+  Pickle error: cannot pickle '_thread.RLock' object
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/task_engine.py", line 169, in compute_transaction_key
+    key = self.task.cache_policy.compute_key(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/cache_policies.py", line 214, in compute_key
+    policy_key = policy.compute_key(
+                 ^^^^^^^^^^^^^^^^^^^
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/cache_policies.py", line 384, in compute_key
+    raise ValueError(msg) from exc
+ValueError: Unable to create hash - objects could not be serialized.
+  JSON error: Unable to serialize unknown type: <class 'research_system.ResearchSystem'>
+  Pickle error: cannot pickle '_thread.RLock' object
+
+This often occurs when task inputs contain objects that cannot be cached like locks, file handles, or other system resources.
+
+To resolve this, you can:
+  1. Exclude these arguments by defining a custom `cache_key_fn`
+  2. Disable caching by passing `cache_policy=NO_CACHE`
+
+16:08:16.878 | ERROR   | Task run 'create_research_plan' - Error encountered when computing cache key - result will not be persisted.
+Traceback (most recent call last):
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/cache_policies.py", line 374, in compute_key
+    return hash_objects(hashed_inputs, raise_on_failure=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/utilities/hashing.py", line 89, in hash_objects
+    raise HashError(msg)
+prefect.exceptions.HashError: Unable to create hash - objects could not be serialized.
+  JSON error: Unable to serialize unknown type: <class 'research_system.ResearchSystem'>
+  Pickle error: cannot pickle '_thread.RLock' object
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/task_engine.py", line 169, in compute_transaction_key
+    key = self.task.cache_policy.compute_key(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/cache_policies.py", line 214, in compute_key
+    policy_key = policy.compute_key(
+                 ^^^^^^^^^^^^^^^^^^^
+  File "/home/guglielmov/miniconda3/envs/sorgente/lib/python3.12/site-packages/prefect/cache_policies.py", line 384, in compute_key
+    raise ValueError(msg) from exc
+ValueError: Unable to create hash - objects could not be serialized.
+  JSON error: Unable to serialize unknown type: <class 'research_system.ResearchSystem'>
+  Pickle error: cannot pickle '_thread.RLock' object
+
+This often occurs when task inputs contain objects that cannot be cached like locks, file handles, or other system resources.
+
+To resolve this, you can:
+  1. Exclude these arguments by defining a custom `cache_key_fn`
+  2. Disable caching by passing `cache_policy=NO_CACHE`
