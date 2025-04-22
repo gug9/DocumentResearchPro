@@ -1,110 +1,93 @@
-# Sistema di Ricerca Avanzata con DeepSeek e Gemini
+# Sistema di Ricerca Avanzata con AI
 
-Un sistema Python modulare per ricerca avanzata che integra modelli DeepSeek locali (via Ollama) e Gemini Pro 1.5 per analisi multimodale, ricerca web e generazione di documenti.
+Un sistema Python modulare per ricerca avanzata che integra diversi modelli AI (Gemini, OpenAI, DeepSeek) per analisi multimodale, ricerca web e generazione di documenti.
 
 ## Funzionalità Principali
 
-### DeepSeek Local (via Ollama)
-- **Pianificazione Task**: Generazione di piani di ricerca strutturati
-- **Validazione Contenuti**: Analisi di qualità e rilevanza dei contenuti
-- **Generazione Documenti**: Sintesi e creazione di reportistica avanzata
+### Modelli AI Supportati
+- **Google (Gemini)**: Analisi multimodale e comprensione del testo
+- **OpenAI (GPT)**: Elaborazione avanzata del linguaggio naturale
+- **DeepSeek Local** (opzionale, via Ollama): Elaborazione locale dei task
 
-### Gemini Pro 1.5 (API Google)
-- **Analisi Multimodale**: Elaborazione di testi, immagini e dati strutturati
-- **Ricerca Web Avanzata**: Navigazione e analisi di contenuti online
-- **Elaborazione Documenti Complessi**: Comprensione di documenti estesi e tecnici
+### Capacità Core
+- **Pianificazione Task**: Generazione di piani di ricerca strutturati
+- **Validazione Contenuti**: Analisi di qualità e rilevanza
+- **Ricerca Web**: Navigazione e analisi di contenuti online
+- **Generazione Documenti**: Sintesi e reportistica avanzata
 
 ## Architettura del Sistema
 
 ```
-┌────────────────────────┐     ┌────────────────────────┐
-│                        │     │                        │
-│   DeepSeek via Ollama  │     │  Gemini Pro 1.5 API    │
-│                        │     │                        │
-└───────────┬────────────┘     └────────────┬───────────┘
-            │                               │
-            ▼                               ▼
-┌────────────────────────┐     ┌────────────────────────┐
-│                        │     │                        │
-│  Pianificazione        │     │  Analisi Multimodale   │
-│  Validazione           │     │  Ricerca Web           │
-│  Generazione           │     │  Elaborazione Dati     │
-│                        │     │                        │
-└───────────┬────────────┘     └────────────┬───────────┘
-            │                               │
-            └───────────────┬───────────────┘
-                            │
-                            ▼
-                ┌────────────────────────┐
-                │                        │
-                │    Sistema Ricerca     │
-                │                        │
-                └────────────┬───────────┘
-                            │
-                            ▼
-                ┌────────────────────────┐
-                │                        │
-                │ Interfaccia Streamlit  │
-                │                        │
-                └────────────────────────┘
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│                     │     │                     │     │                     │
+│    Google Gemini    │     │      OpenAI         │     │  DeepSeek (Ollama) │
+│                     │     │                     │     │     [Opzionale]     │
+└──────────┬──────────┘     └──────────┬──────────┘     └──────────┬──────────┘
+           │                            │                            │
+           └────────────────┬───────────┴────────────────┬──────────┘
+                           │                             │
+                ┌──────────▼─────────────┐     ┌────────▼───────────┐
+                │                        │     │                     │
+                │    Model Adapter       │     │  Browser Control    │
+                │                        │     │                     │
+                └──────────┬─────────────┘     └────────┬───────────┘
+                          │                             │
+                          └──────────────┬──────────────┘
+                                        │
+                           ┌────────────▼───────────┐
+                           │                        │
+                           │   Research System      │
+                           │                        │
+                           └────────────┬───────────┘
+                                       │
+                           ┌───────────▼────────────┐
+                           │                        │
+                           │ Interfaccia Streamlit  │
+                           │                        │
+                           └────────────────────────┘
 ```
 
 ## Requisiti Tecnologici
 
-- **Ambiente**: Python 3.10+
-- **Modelli Locali**: Ollama con DeepSeek-R1
-- **Cloud API**: Gemini Pro 1.5
-- **Browser Automation**: Playwright
-- **Orchestrazione**: Prefect
-- **Interfaccia**: Streamlit
+- Python 3.11+
+- Dipendenze principali:
+  - streamlit
+  - google-generativeai
+  - openai
+  - ollama (opzionale)
+  - playwright
+  - flask
+  - langchain
+  - prefect
+  - pydantic
 
-## Come Iniziare
+## Setup e Configurazione
 
-### Prerequisiti
+1. **Configurazione API Keys**:
+   - Configurare le API key tramite l'interfaccia Streamlit
+   - Supporto per Gemini API e OpenAI API
 
-1. **Installare Ollama**:
-   ```
-   # Visita https://ollama.ai per l'installazione
-   ollama serve  # Avvia il server Ollama
-   ```
-
-2. **Installare i Modelli DeepSeek**:
-   ```
-   ollama pull deepseek-coder:instruct
-   ```
-
-3. **Configurare l'API Key di Gemini**:
-   ```
-   export GEMINI_API_KEY="tua-chiave-api"
-   ```
-
-### Avvio del Sistema
-
-1. Installare le dipendenze:
-   ```
+2. **Installazione**:
+   ```bash
    pip install -r requirements.txt
    python -m playwright install
    ```
 
-2. Avviare l'applicazione:
-   ```
-   python streamlit_main.py
-   ```
-
-3. Accedere all'interfaccia web:
-   ```
-   http://localhost:8501
+3. **Avvio**:
+   ```bash
+   streamlit run streamlit_main.py
    ```
 
 ## Struttura del Progetto
 
-- `research_system.py`: Sistema principale di ricerca
-- `deepseek_integration.py`: Integrazione con DeepSeek via Ollama
-- `gemini_integration.py`: Integrazione con Gemini Pro 1.5
-- `browser_controller_new.py`: Controller browser con Playwright
-- `orchestration.py`: Orchestrazione workflow con Prefect
 - `app_streamlit.py`: Interfaccia utente Streamlit
-- `streamlit_main.py`: Script di avvio dell'applicazione
+- `model_adapter.py`: Gestione dei modelli AI
+- `browser_controller.py`: Controllo della navigazione web
+- `research_system.py`: Core del sistema di ricerca
+- `validator.py`: Sistema di validazione contenuti
+- `generator.py`: Generazione documenti
+- `orchestrator.py`: Orchestrazione dei workflow
+
 
 ## Casi d'Uso
 
