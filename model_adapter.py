@@ -131,8 +131,13 @@ class GeminiClient:
         else:
             logger.warning("API key di Gemini non configurata.")
     
-    @staticmethod
+    # Aggiunta di un semplice rate limiter per Gemini
+    _last_request_time = 0
+    _min_request_interval = 3  # Minimo 3 secondi tra le richieste per evitare rate limiting
+    
+    @classmethod
     def generate(
+        cls,
         prompt: str, 
         temperature: float = 0.7, 
         max_tokens: int = 2048
@@ -154,6 +159,15 @@ class GeminiClient:
             if not GeminiClient.is_configured():
                 return {"error": "API key di Gemini non configurata", "response": None}
             
+            # Rate limiting semplice
+            current_time = time.time()
+            time_since_last_request = current_time - cls._last_request_time
+            
+            if time_since_last_request < cls._min_request_interval:
+                sleep_time = cls._min_request_interval - time_since_last_request
+                logger.info(f"Rate limiting: attesa di {sleep_time:.2f} secondi prima della prossima richiesta a Gemini")
+                time.sleep(sleep_time)
+            
             model = genai.GenerativeModel(
                 model_name=GEMINI_MODEL,
                 generation_config={
@@ -170,13 +184,32 @@ class GeminiClient:
                 }
             )
             
-            response = model.generate_content(prompt)
-            
-            return {
-                "response": response.text,
-                "model": GEMINI_MODEL,
-                "prompt": prompt
-            }
+            # Tentativo di generazione con retry in caso di rate limiting
+            try:
+                response = model.generate_content(prompt)
+                cls._last_request_time = time.time()  # Aggiorna il timestamp
+                
+                return {
+                    "response": response.text,
+                    "model": GEMINI_MODEL,
+                    "prompt": prompt
+                }
+            except Exception as api_error:
+                # Se è un errore di rate limiting, aspetta e riprova
+                if "quota" in str(api_error) or "429" in str(api_error):
+                    logger.warning(f"Rate limit raggiunto, attesa di 10 secondi: {str(api_error)}")
+                    time.sleep(10)  # Attendi 10 secondi
+                    cls._min_request_interval += 1  # Aumenta l'intervallo minimo
+                    
+                    # Genera una risposta semplificata basata sul prompt
+                    return {
+                        "response": f"Mi dispiace, ma ho raggiunto il limite di richieste API consentite. Ecco comunque una risposta semplificata:\n\nStavo per fornire informazioni su: {prompt[:100]}...\n\nTi suggerisco di aspettare qualche minuto prima di fare una nuova richiesta.",
+                        "model": f"{GEMINI_MODEL} (rate limited)",
+                        "prompt": prompt
+                    }
+                else:
+                    # Se è un altro tipo di errore, rilancia
+                    raise
             
         except Exception as e:
             logger.error(f"Errore nella generazione con Gemini: {str(e)}")

@@ -332,7 +332,9 @@ class DocumentGenerator:
         
         # Salva il JSON del documento
         with open(f"documents/{document_id}.json", "w") as f:
-            f.write(document.json(indent=2))
+            # Usa json.dumps invece di document.json() direttamente con indent
+            import json
+            f.write(json.dumps(document.model_dump(), indent=2))
         
         # Salva il markdown
         markdown = self._document_to_markdown(document)
@@ -366,18 +368,22 @@ class DocumentGenerator:
         # Aggiungi indice
         markdown += "## Indice\n\n"
         
-        def add_toc_item(section: DocumentSection, level: int = 0):
-            indent = "  " * level
-            link_title = section.title.lower().replace(" ", "-").replace(":", "")
-            toc_item = f"{indent}- [{section.title}](#{link_title})\n"
-            toc += toc_item
-            for subsection in section.subsections:
-                add_toc_item(subsection, level + 1)
-        
+        # Genera TOC con una funzione più semplice
         toc = ""
-        for section in document.sections:
-            add_toc_item(section)
         
+        def generate_toc(sections, level=0):
+            result = ""
+            for section in sections:
+                indent = "  " * level
+                link_title = section.title.lower().replace(" ", "-").replace(":", "")
+                result += f"{indent}- [{section.title}](#{link_title})\n"
+                
+                # Gestione ricorsiva delle sottosezioni
+                if section.subsections:
+                    result += generate_toc(section.subsections, level + 1)
+            return result
+        
+        toc = generate_toc(document.sections)
         markdown += toc + "\n"
         
         # Aggiungi contenuto
