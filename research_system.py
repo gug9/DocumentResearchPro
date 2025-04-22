@@ -14,6 +14,7 @@ import google.generativeai as genai
 from playwright.async_api import async_playwright
 from prefect import flow, task
 from prefect.tasks import NO_CACHE
+from prefect.tasks import NO_CACHE
 import streamlit as st
 from pydantic import BaseModel, Field
 
@@ -209,7 +210,7 @@ class ResearchSystem:
             logger.error(f"Error fixing JSON structure: {str(e)}")
             return json_data
         
-    @task
+    @task(cache_policy=NO_CACHE)
     async def create_research_plan(self, query: str) -> ResearchPlan:
         """Create a structured research plan from a user query."""
         logger.info(f"Creating research plan for: {query}")
