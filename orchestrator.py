@@ -236,6 +236,19 @@ class ResearchOrchestrator:
     
     @flow(name="research_workflow")
     async def execute_research_workflow(self, query: str) -> Document:
+        """Esegue ricerche parallele e sintetizza i risultati."""
+        planner = DeepSeekPlanner()
+        synthesizer = DeepSeekSynthesizer()
+        
+        # Genera i task di ricerca
+        tasks = await planner.crea_piano_ricerca(query)
+        
+        # Esegui le ricerche in parallelo
+        ricerche = [self.executor.execute_task(task) for task in tasks]
+        risultati = await asyncio.gather(*ricerche)
+        
+        # Sintetizza i risultati
+        documento = await synthesizer.sintetizza_risultati(query, risultati)
         """
         Esegue un flusso di ricerca completo.
         
