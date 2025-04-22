@@ -19,11 +19,17 @@ class RicercaTask(BaseModel):
 
 class DeepSeekPlanner:
     def __init__(self):
-        self.model = ChatOllama(
-            model="deepseek-r1:7b",
-            temperature=0.3,
-            base_url="http://localhost:11434"
-        )
+        try:
+            self.model = ChatOllama(
+                model="deepseek-r1:7b",
+                temperature=0.3,
+                base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+            )
+            self.available = True
+        except Exception as e:
+            logger.warning(f"Impossibile inizializzare DeepSeek: {str(e)}")
+            self.available = False
+            self.model = None
 
     async def crea_piano_ricerca(self, prompt_utente: str) -> List[RicercaTask]:
         """Genera task di ricerca paralleli basati sul prompt dell'utente."""

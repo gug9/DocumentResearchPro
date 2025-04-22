@@ -306,8 +306,11 @@ class ModelAdapter:
             prompt += format_instructions
         
         if model == "ollama":
+            # Formatta il prompt per Ollama
+            ollama_prompt = f"[INSTRUCTION]\n{prompt}\n[/INSTRUCTION]"
+            
             result = OllamaClient.generate(
-                prompt=prompt,
+                prompt=ollama_prompt,
                 model=OLLAMA_DEEPSEEK_MODEL,
                 temperature=temperature,
                 max_tokens=max_tokens
@@ -317,8 +320,10 @@ class ModelAdapter:
             if "error" in result and result.get("error"):
                 logger.warning(f"Errore con Ollama: {result['error']}. Provo con Gemini.")
                 if self.gemini_available:
+                    # Riformatta il prompt per Gemini
+                    gemini_prompt = prompt.replace("[INSTRUCTION]", "").replace("[/INSTRUCTION]", "").strip()
                     result = GeminiClient.generate(
-                        prompt=prompt,
+                        prompt=gemini_prompt,
                         temperature=temperature,
                         max_tokens=max_tokens
                     )

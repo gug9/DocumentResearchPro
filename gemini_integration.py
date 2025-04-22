@@ -46,10 +46,14 @@ class GeminiIntegration:
         
         logger.info(f"Initialized Gemini integration with model: {model_name}")
         
-    async def generate_text(self, prompt: str) -> str:
+    async def generate_text(self, prompt: str) -> Dict[str, Any]:
         """Generate text from a prompt."""
         if not self.model:
-            return "Error: Gemini API not configured."
+            return {
+                "error": "Gemini API not configured.",
+                "response": None,
+                "model": "gemini"
+            }
             
         try:
             # Use asyncio to run in a thread pool to avoid blocking
