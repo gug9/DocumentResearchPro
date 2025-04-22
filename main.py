@@ -132,13 +132,13 @@ def create_research_plan():
         planner = ResearchPlanner()
         plan = planner.create_research_plan(prompt)
         
-        # Store in session
-        session['plan'] = json.loads(plan.json())
+        # Store in session (usando model_dump invece di json())
+        session['plan'] = plan.model_dump()
         session['prompt'] = prompt
         
         return jsonify({
             "plan_id": plan.task_id,
-            "plan": json.loads(plan.json())
+            "plan": plan.model_dump()
         })
     except Exception as e:
         logger.error(f"Error creating research plan: {e}")

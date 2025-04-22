@@ -273,24 +273,52 @@ class ResearchOrchestrator:
             self.active_research[research_id]["steps_completed"].append("task_generation")
             self.active_research[research_id]["task_count"] = len(tasks)
             
-            # Step 3: Esegui i task in parallelo
-            # Nota: In un sistema reale, questi sarebbero eseguiti in parallelo con Prefect
+            # Step 3: Esegui i task in sequenza con pausa per evitare rate limits
             results = []
-            for task in tasks:
+            for i, task in enumerate(tasks):
                 self.active_research[research_id]["current_task"] = task.task_id
-                result = await self.execute_research_task(task)
-                results.append(result)
+                
+                # Aggiungi pausa per evitare rate limits, escluso il primo task
+                if i > 0:
+                    logger.info(f"Pausa di 5 secondi prima del task {i+1}/{len(tasks)} per evitare rate limits...")
+                    await asyncio.sleep(5)
+                
+                try:
+                    result = await self.execute_research_task(task)
+                    results.append(result)
+                except Exception as e:
+                    logger.error(f"Errore nell'esecuzione del task {task.task_id}: {str(e)}")
+                    # Crea un risultato minimo in caso di errore
+                    results.append({
+                        "task_id": task.task_id,
+                        "section": task.section,
+                        "question": task.question,
+                        "content": f"Non è stato possibile completare questa ricerca a causa di un errore: {str(e)}",
+                        "sources_used": [],
+                        "confidence": 0.0
+                    })
             
             # Aggiorna lo stato
             self.active_research[research_id]["status"] = "validation"
             self.active_research[research_id]["steps_completed"].append("research")
             
-            # Step 4: Valida i risultati
+            # Step 4: Valida i risultati con pausa per evitare rate limits
             validated_results = []
             for i, (task, result) in enumerate(zip(tasks, results)):
                 self.active_research[research_id]["current_validation"] = f"{i+1}/{len(results)}"
-                validated_result = await self.validate_research_result(task, result)
-                validated_results.append(validated_result)
+                
+                # Aggiungi pausa per evitare rate limits, escluso il primo risultato
+                if i > 0:
+                    logger.info(f"Pausa di 5 secondi prima della validazione {i+1}/{len(results)} per evitare rate limits...")
+                    await asyncio.sleep(5)
+                
+                try:
+                    validated_result = await self.validate_research_result(task, result)
+                    validated_results.append(validated_result)
+                except Exception as e:
+                    logger.error(f"Errore nella validazione del risultato per il task {task.task_id}: {str(e)}")
+                    # In caso di errore, mantieni il risultato originale
+                    validated_results.append(result)
             
             # Aggiorna lo stato
             self.active_research[research_id]["status"] = "document_generation"

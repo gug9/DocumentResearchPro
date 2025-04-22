@@ -260,47 +260,93 @@ class ResearchExecutor:
                 trafilatura_available = True
             except ImportError:
                 trafilatura_available = False
+                logger.warning("Trafilatura non disponibile, utilizzo BeautifulSoup come fallback")
             
             import requests
             from bs4 import BeautifulSoup
+            import socket
+            
+            # Imposta timeout DNS più breve per prevenire blocchi
+            original_getaddrinfo = socket.getaddrinfo
+            
+            def getaddrinfo_with_timeout(*args, **kwargs):
+                # Wrapper per socket.getaddrinfo con timeout
+                import signal
+                
+                def timeout_handler(signum, frame):
+                    raise socket.gaierror("DNS resolution timeout")
+                
+                # Imposta timeout di 10 secondi per la risoluzione DNS
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(10)
+                
+                try:
+                    return original_getaddrinfo(*args, **kwargs)
+                finally:
+                    signal.alarm(0)  # Disattiva l'allarme
+            
+            # Sostituisci temporaneamente la funzione
+            socket.getaddrinfo = getaddrinfo_with_timeout
             
             start_time = time.time()
             
-            # Scarica la pagina
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            }
-            response = requests.get(url, headers=headers, timeout=30)
-            response.raise_for_status()
+            try:
+                # Scarica la pagina con timeout stringenti
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                }
+                
+                # Imposta timeout per connessione (5s), lettura (15s) e totale (30s)
+                response = requests.get(url, headers=headers, timeout=(5, 15))
+                response.raise_for_status()
+                
+                html_content = response.text
+                
+                # Estrai il titolo con BeautifulSoup
+                soup = BeautifulSoup(html_content, 'html.parser')
+                title = soup.title.string if soup.title else "Titolo non disponibile"
+                
+                # Estrai il testo
+                if trafilatura_available:
+                    # Usa trafilatura per estrarre il testo principale
+                    text_content = trafilatura.extract(html_content)
+                else:
+                    # Fallback a BeautifulSoup
+                    text_content = soup.get_text(separator='\n', strip=True)
+                
+                # Calcoliamo il tempo di caricamento
+                load_time = int((time.time() - start_time) * 1000)
+                
+                logger.info(f"Contenuto estratto con successo da {url} (metodo alternativo)")
+                
+                return WebPage(
+                    url=url,
+                    title=title,
+                    text_content=text_content,
+                    html_content=html_content,
+                    screenshot_path=None,  # Non possiamo ottenere screenshot
+                    load_status="success",
+                    load_time_ms=load_time
+                )
             
-            html_content = response.text
-            
-            # Estrai il titolo con BeautifulSoup
-            soup = BeautifulSoup(html_content, 'html.parser')
-            title = soup.title.string if soup.title else "Titolo non disponibile"
-            
-            # Estrai il testo
-            if trafilatura_available:
-                # Usa trafilatura per estrarre il testo principale
-                text_content = trafilatura.extract(html_content)
-            else:
-                # Fallback a BeautifulSoup
-                text_content = soup.get_text(separator='\n', strip=True)
-            
-            # Calcoliamo il tempo di caricamento
-            load_time = int((time.time() - start_time) * 1000)
-            
-            logger.info(f"Contenuto estratto con successo da {url} (metodo alternativo)")
-            
-            return WebPage(
-                url=url,
-                title=title,
-                text_content=text_content,
-                html_content=html_content,
-                screenshot_path=None,  # Non possiamo ottenere screenshot
-                load_status="success",
-                load_time_ms=load_time
-            )
+            except requests.exceptions.ConnectTimeout:
+                logger.error(f"Timeout di connessione a {url}")
+                raise
+            except requests.exceptions.ReadTimeout:
+                logger.error(f"Timeout nella lettura da {url}")
+                raise
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"Errore di connessione a {url}: {str(e)}")
+                raise
+            except requests.exceptions.HTTPError as e:
+                logger.error(f"Errore HTTP per {url}: {str(e)}")
+                raise
+            except socket.gaierror as e:
+                logger.error(f"Errore DNS per {url}: {str(e)}")
+                raise
+            finally:
+                # Ripristina la funzione originale
+                socket.getaddrinfo = original_getaddrinfo
             
         except Exception as e:
             logger.error(f"Errore nell'estrazione alternativa da {url}: {str(e)}")
