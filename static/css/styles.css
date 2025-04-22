@@ -1,99 +1,84 @@
-/* Custom styles for the document research system */
+/* Stili aggiuntivi per il Sistema di Ricerca Avanzata */
+
+/* Tema colore principale */
+:root {
+    --custom-primary: var(--bs-primary);
+    --custom-secondary: var(--bs-secondary);
+    --custom-info: var(--bs-info);
+    --custom-accent: var(--bs-primary);
+}
+
+/* Stili comuni */
+body {
+    padding-bottom: 2rem;
+}
+
+.navbar {
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .card {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     margin-bottom: 1.5rem;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card-header {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 500;
+    border-bottom: none;
 }
 
-.progress {
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 0.5rem;
+/* Componenti specifici */
+.source-link {
+    text-decoration: none;
+    color: var(--custom-primary);
+    transition: all 0.2s;
 }
 
-.finding-card {
-    transition: transform 0.2s ease;
+.source-link:hover {
+    text-decoration: underline;
 }
 
-.finding-card:hover {
-    transform: translateY(-3px);
+/* Animazioni */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.key-point-text {
-    flex: 1;
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Connection visualization */
-.connection-arrow {
-    width: 36px;
-    height: 36px;
-    stroke-width: 1;
+/* Personalizzazioni per vari componenti */
+.form-control:focus {
+    border-color: var(--custom-primary);
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
 }
 
-.connection-card[data-relation="contrasto"] .connection-arrow {
-    color: #dc3545;
+.btn-primary {
+    background-color: var(--custom-primary);
+    border-color: var(--custom-primary);
 }
 
-.connection-card[data-relation="supporto"] .connection-arrow {
-    color: #28a745;
+.btn-primary:hover {
+    background-color: var(--custom-primary);
+    filter: brightness(1.1);
 }
 
-.connection-card[data-relation="correlazione"] .connection-arrow {
-    color: #17a2b8;
-}
-
-/* Page specific styles */
-body {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
-.container {
-    flex: 1;
-}
-
-footer {
-    margin-top: auto;
-}
-
-/* Loading animation */
-@keyframes pulse {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
-}
-
-.loading {
-    animation: pulse 1.5s infinite ease-in-out;
-}
-
-/* Custom scrollbar for code blocks */
-pre {
-    max-height: 300px;
-    overflow-y: auto;
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 0.5rem;
-    padding: 1rem;
-}
-
-pre::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-pre::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 0.25rem;
-}
-
-pre::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 0.25rem;
-}
-
-pre::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+/* Stili di stampa */
+@media print {
+    .navbar, .card-header button, .actions-section {
+        display: none !important;
+    }
+    
+    body {
+        background-color: white !important;
+        color: black !important;
+    }
+    
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+    }
 }

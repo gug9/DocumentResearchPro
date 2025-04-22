@@ -1,236 +1,316 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="it" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Results - Advanced Document Research System</title>
+    <title>Risultati Ricerca - Sistema di Ricerca Avanzata</title>
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        .key-point {
+            border-left: 3px solid var(--bs-primary);
+            padding-left: 15px;
+            margin-bottom: 15px;
+        }
+        .source-card {
+            margin-bottom: 20px;
+        }
+        .confidence-badge {
+            font-size: 0.8rem;
+            padding: 0.2rem 0.5rem;
+        }
+        .source-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .source-metadata {
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+            color: var(--bs-secondary);
+        }
+        .summary-section {
+            background-color: rgba(var(--bs-primary-rgb), 0.05);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+    </style>
 </head>
 <body>
-    <div class="container py-4">
-        <header class="mb-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <h1 class="display-5 fw-bold">
-                    <i data-feather="file-text"></i>
-                    Research Results
-                </h1>
-                <div>
-                    <a href="/" class="btn btn-outline-info">
-                        <i data-feather="home"></i> Home
-                    </a>
-                    <a href="/" class="btn btn-outline-primary">
-                        <i data-feather="plus-circle"></i> New Research
-                    </a>
-                </div>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+                <span>Sistema di Ricerca Avanzata</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Risultati</a>
+                    </li>
+                </ul>
             </div>
-            <p class="lead">Analysis and findings from your research query</p>
-            <hr class="my-4">
-        </header>
+        </div>
+    </nav>
 
-        <main>
-            {% if has_results %}
-            <div class="row mb-4">
-                <div class="col-lg-12">
-                    <div class="card bg-dark border-secondary">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="m-0">Research Summary</h3>
-                            <span class="badge bg-info" id="taskId">Task ID: {{ task_id }}</span>
+    <main class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 id="researchTitle">Risultati della Ricerca</h2>
+            <a href="/" class="btn btn-outline-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                Nuova Ricerca
+            </a>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <!-- Sommario della Ricerca -->
+                <div class="summary-section mb-4">
+                    <h4 class="mb-3">Sintesi della Ricerca</h4>
+                    <div id="researchSummary" class="mb-3">
+                        <div class="placeholder-glow">
+                            <span class="placeholder col-12"></span>
+                            <span class="placeholder col-12"></span>
+                            <span class="placeholder col-12"></span>
                         </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <div id="researchObjective" class="mb-3">
-                                        <h4>Research Objective</h4>
-                                        <p id="objectiveText" class="lead">Loading research objective...</p>
-                                    </div>
-                                    <div id="researchStats">
-                                        <h4>Statistics</h4>
-                                        <div class="row">
-                                            <div class="col-md-4">
-                                                <div class="card bg-secondary mb-3">
-                                                    <div class="card-body text-center">
-                                                        <h3 id="sourcesCount">0</h3>
-                                                        <p class="mb-0">Sources Analyzed</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="card bg-secondary mb-3">
-                                                    <div class="card-body text-center">
-                                                        <h3 id="keyPointsCount">0</h3>
-                                                        <p class="mb-0">Key Points</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="card bg-secondary mb-3">
-                                                    <div class="card-body text-center">
-                                                        <h3 id="connectionsCount">0</h3>
-                                                        <p class="mb-0">Connections</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <h4>Confidence Scores</h4>
-                                    <canvas id="confidenceChart"></canvas>
-                                </div>
+                    </div>
+                </div>
+
+                <!-- Risultati Dettagliati -->
+                <h4 class="mb-3">Risultati Dettagliati</h4>
+                <div id="researchFindings">
+                    <div class="placeholder-glow">
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title placeholder-glow">
+                                    <span class="placeholder col-6"></span>
+                                </h5>
+                                <p class="card-text placeholder-glow">
+                                    <span class="placeholder col-12"></span>
+                                    <span class="placeholder col-12"></span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title placeholder-glow">
+                                    <span class="placeholder col-6"></span>
+                                </h5>
+                                <p class="card-text placeholder-glow">
+                                    <span class="placeholder col-12"></span>
+                                    <span class="placeholder col-12"></span>
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="row mb-4">
-                <div class="col-lg-12">
-                    <div class="card bg-dark border-secondary">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="m-0">Key Findings</h3>
-                            <div>
-                                <button class="btn btn-sm btn-outline-info" id="exportJson">
-                                    <i data-feather="download"></i> Export JSON
-                                </button>
-                                <button class="btn btn-sm btn-outline-info" id="exportCsv">
-                                    <i data-feather="file-text"></i> Export CSV
-                                </button>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div id="findingsContainer">
-                                <div class="text-center py-5">
-                                    <div class="spinner-border text-info" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                    <p class="mt-3">Loading research findings...</p>
-                                </div>
-                            </div>
+            <div class="col-md-4">
+                <!-- Informazioni sulla Ricerca -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Informazioni</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">ID Ricerca</dt>
+                            <dd class="col-sm-7" id="researchId"></dd>
+                            
+                            <dt class="col-sm-5">Obiettivo</dt>
+                            <dd class="col-sm-7" id="researchObjective"></dd>
+                            
+                            <dt class="col-sm-5">Data/Ora</dt>
+                            <dd class="col-sm-7" id="researchDate"></dd>
+                            
+                            <dt class="col-sm-5">Profondità</dt>
+                            <dd class="col-sm-7" id="researchDepth"></dd>
+                            
+                            <dt class="col-sm-5">Fonti</dt>
+                            <dd class="col-sm-7" id="sourcesCount">0</dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Azioni -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Azioni</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary" id="downloadJson" type="button">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Download JSON
+                            </button>
+                            <button class="btn btn-outline-secondary" id="regenerateSummary" type="button">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"></path>
+                                </svg>
+                                Rigenera Sintesi
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </main>
 
-            <div class="row mb-4">
-                <div class="col-lg-12">
-                    <div class="card bg-dark border-secondary">
-                        <div class="card-header">
-                            <h3 class="m-0">Connections & Relationships</h3>
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get task ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const taskId = urlParams.get('task_id');
+            
+            if (!taskId) {
+                window.location.href = '/';
+                return;
+            }
+            
+            // Set task ID in UI
+            document.getElementById('researchId').textContent = taskId;
+            
+            // Fetch research results
+            fetch(`/api/results/${taskId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Research results not found');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    displayResearchResults(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching research results:', error);
+                    // Display error message
+                    document.getElementById('researchSummary').innerHTML = `
+                        <div class="alert alert-danger">
+                            Errore nel caricamento dei risultati: ${error.message}
                         </div>
-                        <div class="card-body">
-                            <div id="connectionsContainer">
-                                <div class="text-center py-5">
-                                    <div class="spinner-border text-info" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                    <p class="mt-3">Loading connections...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% else %}
-            <div class="row">
-                <div class="col-lg-8 mx-auto">
-                    <div class="card bg-dark border-secondary">
-                        <div class="card-body text-center py-5">
-                            <i data-feather="alert-circle" style="width: 64px; height: 64px;"></i>
-                            <h3 class="mt-4">No Research Results Available</h3>
-                            <p class="lead">No research task has been completed yet.</p>
-                            <a href="/" class="btn btn-primary btn-lg mt-3">
-                                <i data-feather="search"></i> Start a New Research
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-        </main>
-
-        <footer class="pt-4 mt-5 text-muted border-top">
-            <div class="row">
-                <div class="col-md-6">
-                    <p>&copy; 2023 - Advanced Document Research System</p>
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <p>Powered by Playwright &amp; Python</p>
-                </div>
-            </div>
-        </footer>
-    </div>
-
-    <template id="findingTemplate">
-        <div class="card bg-secondary mb-3 finding-card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h4 class="finding-title mb-0">Title</h4>
-                    <span class="badge bg-info finding-confidence">Confidence: 0.0</span>
-                </div>
-                <div class="finding-metadata text-muted small mt-1">
-                    <span class="finding-source">Source: </span>
-                    <span class="finding-date ms-2">Date: </span>
-                    <span class="finding-author ms-2">Author: </span>
-                </div>
-            </div>
-            <div class="card-body">
-                <h5>Summary</h5>
-                <p class="finding-summary"></p>
+                    `;
+                });
                 
-                <h5>Key Points</h5>
-                <ul class="finding-key-points list-group list-group-flush"></ul>
-            </div>
-        </div>
-    </template>
-
-    <template id="keyPointTemplate">
-        <li class="list-group-item bg-dark d-flex justify-content-between align-items-start">
-            <div class="key-point-text"></div>
-            <span class="badge bg-info rounded-pill key-point-confidence"></span>
-        </li>
-    </template>
-
-    <template id="connectionTemplate">
-        <div class="card bg-secondary mb-3 connection-card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="connection-relation mb-0">Relationship: </h5>
-                    <span class="badge bg-info connection-strength">Strength: 0.0</span>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-5">
-                        <div class="card bg-dark">
-                            <div class="card-body">
-                                <h6 class="connection-source"></h6>
+            // Download JSON button
+            document.getElementById('downloadJson').addEventListener('click', function() {
+                window.location.href = `/api/results/${taskId}`;
+            });
+        });
+        
+        function displayResearchResults(data) {
+            // Set research info
+            document.getElementById('researchObjective').textContent = data.objective;
+            document.getElementById('researchTitle').textContent = `Risultati: ${data.objective}`;
+            
+            // Set research date
+            const date = new Date(data.created_at);
+            document.getElementById('researchDate').textContent = date.toLocaleString('it-IT');
+            
+            // Set sources count
+            document.getElementById('sourcesCount').textContent = data.findings.length;
+            
+            // Set research depth if available
+            if (data.depth) {
+                document.getElementById('researchDepth').textContent = data.depth;
+            }
+            
+            // Display summary
+            document.getElementById('researchSummary').innerHTML = `<p>${data.summary}</p>`;
+            
+            // Display findings
+            const findingsElement = document.getElementById('researchFindings');
+            findingsElement.innerHTML = '';
+            
+            data.findings.forEach((finding, index) => {
+                const cardHtml = `
+                    <div class="card source-card">
+                        <div class="card-header">
+                            <div class="source-title">
+                                <h5 class="mb-0">
+                                    <a href="${finding.source}" target="_blank" rel="noopener noreferrer">
+                                        ${finding.metadata.title || 'Fonte ' + (index + 1)}
+                                    </a>
+                                </h5>
+                                <span class="confidence-badge badge ${getConfidenceBadgeClass(finding.confidence)}">
+                                    Affidabilità: ${Math.round(finding.confidence * 100)}%
+                                </span>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-2 d-flex align-items-center justify-content-center">
-                        <i data-feather="arrow-right" class="connection-arrow"></i>
-                    </div>
-                    <div class="col-md-5">
-                        <div class="card bg-dark">
-                            <div class="card-body">
-                                <h6 class="connection-target"></h6>
+                        <div class="card-body">
+                            <div class="source-metadata">
+                                ${getMetadataDisplay(finding.metadata)}
                             </div>
+                            
+                            <h6>Punti Chiave</h6>
+                            <div class="key-points mb-3">
+                                ${getKeyPointsHtml(finding.key_points)}
+                            </div>
+                            
+                            <h6>Sintesi</h6>
+                            <p>${finding.summary}</p>
                         </div>
                     </div>
+                `;
+                
+                findingsElement.innerHTML += cardHtml;
+            });
+        }
+        
+        function getConfidenceBadgeClass(confidence) {
+            if (confidence >= 0.7) return 'bg-success';
+            if (confidence >= 0.4) return 'bg-warning';
+            return 'bg-danger';
+        }
+        
+        function getMetadataDisplay(metadata) {
+            let metadataDisplay = '';
+            
+            if (metadata.author) {
+                metadataDisplay += `<span class="me-3">Autore: ${metadata.author}</span>`;
+            }
+            
+            if (metadata.date) {
+                metadataDisplay += `<span class="me-3">Data: ${metadata.date}</span>`;
+            }
+            
+            if (metadata.content_type) {
+                metadataDisplay += `<span>Tipo: ${metadata.content_type}</span>`;
+            }
+            
+            return metadataDisplay || 'Nessun metadato disponibile';
+        }
+        
+        function getKeyPointsHtml(keyPoints) {
+            if (!keyPoints || keyPoints.length === 0) {
+                return '<p class="text-muted">Nessun punto chiave identificato</p>';
+            }
+            
+            return keyPoints.map(point => `
+                <div class="key-point">
+                    ${point.text}
                 </div>
-                <p class="connection-description mt-3"></p>
-            </div>
-        </div>
-    </template>
-
-    <!-- Bootstrap JavaScript bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Feather icons -->
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    <!-- Custom JavaScript -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+            `).join('');
+        }
+    </script>
 </body>
 </html>
