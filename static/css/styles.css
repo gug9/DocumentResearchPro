@@ -1,0 +1,99 @@
+/* Custom styles for the document research system */
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.progress {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+}
+
+.finding-card {
+    transition: transform 0.2s ease;
+}
+
+.finding-card:hover {
+    transform: translateY(-3px);
+}
+
+.key-point-text {
+    flex: 1;
+}
+
+/* Connection visualization */
+.connection-arrow {
+    width: 36px;
+    height: 36px;
+    stroke-width: 1;
+}
+
+.connection-card[data-relation="contrasto"] .connection-arrow {
+    color: #dc3545;
+}
+
+.connection-card[data-relation="supporto"] .connection-arrow {
+    color: #28a745;
+}
+
+.connection-card[data-relation="correlazione"] .connection-arrow {
+    color: #17a2b8;
+}
+
+/* Page specific styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    flex: 1;
+}
+
+footer {
+    margin-top: auto;
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+.loading {
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+/* Custom scrollbar for code blocks */
+pre {
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+pre::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+pre::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0.25rem;
+}
+
+pre::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 0.25rem;
+}
+
+pre::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
