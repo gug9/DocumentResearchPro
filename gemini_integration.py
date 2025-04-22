@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 class GeminiIntegration:
     """Integration with Google's Gemini Pro models."""
     
-    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-1.5-pro"):
+    #def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-1.5-pro"):
+    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemma-3-27b-it"):
         """Initialize the Gemini integration."""
         # Use provided API key or environment variable
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")

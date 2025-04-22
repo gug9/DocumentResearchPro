@@ -28,7 +28,9 @@ OLLAMA_DEEPSEEK_MODEL = os.environ.get("OLLAMA_DEEPSEEK_MODEL", "deepseek-coder:
 OLLAMA_TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "5"))  # 5 secondi di timeout predefinito
 
 # Configurazione Gemini
-GEMINI_MODEL = "gemini-1.5-pro"
+#GEMINI_MODEL = "gemini-1.5-pro"
+GEMINI_MODEL = "gemma-3-27b-it"
+
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 class ModelType:

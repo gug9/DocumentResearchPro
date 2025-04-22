@@ -89,8 +89,8 @@ def main():
         
         # DeepSeek configuration
         st.markdown("**DeepSeek Local (via Ollama)**")
-        planner_model = st.selectbox("Planning Model", ["deepseek-coder:instruct"], index=0)
-        validator_model = st.selectbox("Validation Model", ["deepseek-coder:instruct"], index=0)
+        planner_model = st.selectbox("Planning Model", ["deepseek-r1:7b"], index=0)
+        validator_model = st.selectbox("Validation Model", ["deepseek-r1:7b"], index=0)
         
         # Gemini configuration
         st.markdown("**Gemini Pro**")
@@ -171,7 +171,7 @@ def main():
         # Download options
         st.download_button(
             label="Download Full Report (JSON)",
-            data=output.json(indent=2),
+            data=output.model_dump_json(indent=2),
             file_name="research_results.json",
             mime="application/json"
         )

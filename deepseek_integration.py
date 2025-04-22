@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 class DeepSeekModels:
     """Class to manage DeepSeek model configurations."""
     # Default model settings
-    PLANNER = "deepseek-coder:instruct"
-    VALIDATOR = "deepseek-coder:instruct"
-    GENERATOR = "deepseek-coder:instruct"
+    PLANNER = "deepseek-r1:7b"
+    VALIDATOR = "deepseek-r1:7b"
+    GENERATOR = "deepseek-r1:7b"
     
     @staticmethod
     def get_model_params(model_name: str, temperature: float = 0.3) -> Dict[str, Any]:
